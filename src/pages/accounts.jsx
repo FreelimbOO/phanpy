@@ -256,31 +256,12 @@ function Accounts({ onClose }) {
                           }
                           menuItemClassName="danger"
                           onClick={async () => {
-                            await logOutAccount();
-                            delete account.accessToken;
-                            saveAccounts(accounts);
+                            try {
+                              await logOutAccount();
+                            } catch (e) {}
+                            removeAccount();
                             location.href = '/';
                           }}
-                          menuExtras={
-                            <MenuItem
-                              className="danger"
-                              onClick={async () => {
-                                await logOutAccount();
-                                removeAccount();
-                                location.href = location.pathname || '/';
-                              }}
-                            >
-                              <Icon icon="x" />
-                              <span>
-                                <Trans>
-                                  Log out and remove{' '}
-                                  <span class="bidi-isolate">
-                                    @{account.info.acct}
-                                  </span>
-                                </Trans>
-                              </span>
-                            </MenuItem>
-                          }
                         >
                           <Icon icon="exit" />
                           <span>
