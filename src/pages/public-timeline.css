@@ -24,6 +24,12 @@
   z-index: 10;
 }
 
+#public-timeline .pt-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 #public-timeline .pt-header-brand {
   display: flex;
   align-items: center;
