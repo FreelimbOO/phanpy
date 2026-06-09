@@ -906,4 +906,11 @@ function SecondaryRoutes() {
         <Route index element={<Public />} />
         <Route path="l" element={<Public local />} />
       </Route>
-      <Route path="/:instance?/trendi
+      <Route path="/:instance?/trending" element={<Trending />} />
+      <Route path="/:instance?/search" element={<Search />} />
+      {/* <Route path="/:anything" element={<NotFound />} /> */}
+    </Routes>
+  );
+}
+
+export { App };
