@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { useDebounce } from 'use-debounce';
 import { useSnapshot } from 'valtio';
 
-import logo from '../assets/logo.svg';
+import logo from '../assets/freelimbo-logo.png';
 
 import Icon from '../components/icon';
 import LangSelector from '../components/lang-selector';

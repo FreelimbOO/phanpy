@@ -3,7 +3,7 @@ import './public-timeline.css';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { Link } from 'react-router-dom';
 
-import logo from '../assets/logo.svg';
+import logo from '../assets/freelimbo-logo.png';
 
 const { PHANPY_DEFAULT_INSTANCE: DEFAULT_INSTANCE } = import.meta.env;
 

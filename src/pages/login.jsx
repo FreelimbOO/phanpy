@@ -5,7 +5,7 @@ import Fuse from 'fuse.js';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { useSearchParams } from 'react-router-dom';
 
-import logo from '../assets/logo.svg';
+import logo from '../assets/freelimbo-logo.png';
 
 import LangSelector from '../components/lang-selector';
 import Link from '../components/link';

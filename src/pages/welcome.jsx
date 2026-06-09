@@ -7,8 +7,8 @@ import catchupUrl from '../assets/features/catch-up.png';
 import multiColumnUrl from '../assets/features/multi-column.jpg';
 import multiHashtagTimelineUrl from '../assets/features/multi-hashtag-timeline.jpg';
 import nestedCommentsThreadUrl from '../assets/features/nested-comments-thread.jpg';
-import logoText from '../assets/logo-text-2.svg';
-import logo from '../assets/logo.svg';
+
+import logo from '../assets/freelimbo-logo.png';
 import homeMobileDark from '../assets/screenshots/home-mobile-dark@2x.png';
 import homeMobileLight from '../assets/screenshots/home-mobile-light@2x.png';
 import homeTabletDark from '../assets/screenshots/home-tablet-dark@2x.png';
@@ -45,8 +45,7 @@ function Welcome() {
       <div class="hero-container">
         <div class="hero-content">
           <h1>
-            <img src={logo} alt="" width="100" height="100" />
-            <img src={logoText} alt="Phanpy" width="180" height="52" />
+            <img src={logo} alt="FreelimbO" width="100" height="100" />
           </h1>
           <p class="desc">
             <Trans>A minimalistic opinionated Mastodon web client.</Trans>
