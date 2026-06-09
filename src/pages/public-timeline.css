@@ -131,6 +131,12 @@
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
 }
 
+#public-timeline .pt-media-figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 #public-timeline .pt-media img,
 #public-timeline .pt-media video {
   width: 100%;
@@ -138,6 +144,13 @@
   object-fit: cover;
   border-radius: 8px;
   display: block;
+}
+
+#public-timeline .pt-media-caption {
+  font-size: 0.82em;
+  color: var(--text-insignificant-color);
+  padding: 5px 2px 2px;
+  line-height: 1.4;
 }
 
 #public-timeline .pt-boost-label {

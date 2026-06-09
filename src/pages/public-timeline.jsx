@@ -62,25 +62,37 @@ function PostCard({ post }) {
           {content.media_attachments.map((media) => {
             if (media.type === 'image') {
               return (
-                <img
-                  key={media.id}
-                  src={media.preview_url || media.url}
-                  alt={media.description || ''}
-                  loading="lazy"
-                />
+                <figure key={media.id} class="pt-media-figure">
+                  <img
+                    src={media.preview_url || media.url}
+                    alt={media.description || ''}
+                    loading="lazy"
+                  />
+                  {media.description && (
+                    <figcaption class="pt-media-caption">
+                      {media.description}
+                    </figcaption>
+                  )}
+                </figure>
               );
             }
             if (media.type === 'video' || media.type === 'gifv') {
               return (
-                <video
-                  key={media.id}
-                  src={media.url}
-                  poster={media.preview_url}
-                  controls
-                  loop={media.type === 'gifv'}
-                  muted={media.type === 'gifv'}
-                  autoPlay={media.type === 'gifv'}
-                />
+                <figure key={media.id} class="pt-media-figure">
+                  <video
+                    src={media.url}
+                    poster={media.preview_url}
+                    controls
+                    loop={media.type === 'gifv'}
+                    muted={media.type === 'gifv'}
+                    autoPlay={media.type === 'gifv'}
+                  />
+                  {media.description && (
+                    <figcaption class="pt-media-caption">
+                      {media.description}
+                    </figcaption>
+                  )}
+                </figure>
               );
             }
             return null;
