@@ -204,10 +204,17 @@ function AccountStatuses({ columnMode, ...props }) {
       }
     }
 
+    // Use resolved numeric ID from account if available (id may be a username)
+    const effectiveId = account?.id || id;
+    if (!account?.id && !isAccountId(id)) {
+      // Username not yet resolved; timeline will retry when account loads
+      return { value: [], done: true };
+    }
+
     let results = [];
     if (firstLoad && !columnMode) {
       const { value } = await masto.v1.accounts
-        .$select(id)
+        .$select(effectiveId)
         .statuses.list({
           pinned: true,
         })
@@ -235,7 +242,7 @@ function AccountStatuses({ columnMode, ...props }) {
     }
     if (firstLoad || !accountStatusesIterator.current) {
       accountStatusesIterator.current = masto.v1.accounts
-        .$select(id)
+        .$select(effectiveId)
         .statuses.list({
           limit: LIMIT,
           exclude_replies: excludeReplies,
@@ -315,10 +322,12 @@ function AccountStatuses({ columnMode, ...props }) {
 
   useEffect(() => {
     (async () => {
+      let resolvedId = id;
       try {
         const acc = await fetchAccount();
         console.log(acc);
         setAccount(acc);
+        resolvedId = acc.id;
       } catch (e) {
         console.error(e);
       }
@@ -327,7 +336,7 @@ function AccountStatuses({ columnMode, ...props }) {
       if (!mediaFirst) {
         try {
           const featuredTags = await masto.v1.accounts
-            .$select(id)
+            .$select(resolvedId)
             .featuredTags.list();
           console.log({ featuredTags });
           setFeaturedTags(featuredTags);
@@ -851,7 +860,16 @@ function MonthPicker(props) {
   );
 }
 
-function fetchAccount(id, masto) {
+// Returns true if str looks like a numeric or ULID account ID (not a username)
+function isAccountId(str) {
+  return /^\d+$/.test(str) || str.length >= 16;
+}
+
+async function fetchAccount(id, masto) {
+  if (!isAccountId(id)) {
+    // id is a username — resolve it to an account via lookup
+    return masto.v1.accounts.lookup({ acct: id });
+  }
   return masto.v1.accounts.$select(id).fetch();
 }
 const memFetchAccount = pmem(fetchAccount, {

@@ -313,7 +313,13 @@ function AccountInfo({
   }
 
   const LinkOrDiv = standalone ? 'div' : Link;
-  const accountLink = instance ? `/${instance}/a/${id}` : `/a/${id}`;
+  const { PHANPY_DEFAULT_INSTANCE: DEFAULT_INSTANCE } = import.meta.env;
+  // Use username (acct without @instance) for human-readable profile URLs
+  const acctUsername = acct ? acct.split('@')[0] : id;
+  const accountLink =
+    instance && instance !== DEFAULT_INSTANCE
+      ? `/${instance}/a/${acctUsername}`
+      : `/a/${acctUsername}`;
 
   const [familiarFollowers, setFamiliarFollowers] = useState([]);
   const [postingStats, setPostingStats] = useState();
@@ -639,7 +645,7 @@ function AccountInfo({
                     <MenuItem
                       onClick={() => {
                         states.showQrCodeModal = {
-                          text: url,
+                          text: `${window.location.origin}${accountLink}`,
                           arena: avatarStatic,
                           backgroundMask: headerStatic,
                           caption: acct.includes('@')

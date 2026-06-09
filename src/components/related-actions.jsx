@@ -578,8 +578,12 @@ function RelatedActions({
             </div>
             <MenuItem
               onClick={() => {
+                const { PHANPY_DEFAULT_INSTANCE: DEFAULT_INSTANCE } = import.meta.env;
+                const acctUsername = acct ? acct.split('@')[0] : id;
+                const profilePath = instance && instance !== DEFAULT_INSTANCE ? `/${instance}/a/${acctUsername}` : `/a/${acctUsername}`;
+                const phanpyProfileURL = `${window.location.origin}${profilePath}`;
                 states.showQrCodeModal = {
-                  text: url,
+                  text: phanpyProfileURL,
                   arena: avatarStatic,
                   backgroundMask: headerStatic,
                   caption: acct.includes('@') ? acct : `${acct}@${instance}`,
@@ -855,8 +859,12 @@ function RelatedActions({
               type="button"
               class="plain"
               onClick={() => {
+                const { PHANPY_DEFAULT_INSTANCE: DEFAULT_INSTANCE } = import.meta.env;
+                const acctUsername = acct ? acct.split('@')[0] : id;
+                const profilePath = instance && instance !== DEFAULT_INSTANCE ? `/${instance}/a/${acctUsername}` : `/a/${acctUsername}`;
+                const phanpyProfileURL = `${window.location.origin}${profilePath}`;
                 states.showQrCodeModal = {
-                  text: url,
+                  text: phanpyProfileURL,
                   arena: avatarStatic,
                   backgroundMask: headerStatic,
                   caption: acct.includes('@') ? acct : `${acct}@${instance}`,
