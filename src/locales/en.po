@@ -1525,6 +1525,10 @@ msgstr ""
 msgid "Likes"
 msgstr ""
 
+#: src/components/shortcuts-settings.jsx:63
+msgid "Blog"
+msgstr ""
+
 #: src/components/nav-menu.jsx:265
 #: src/pages/followed-hashtags.jsx:15
 #: src/pages/followed-hashtags.jsx:45
