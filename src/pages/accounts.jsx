@@ -259,7 +259,7 @@ function Accounts({ onClose }) {
                             await logOutAccount();
                             delete account.accessToken;
                             saveAccounts(accounts);
-                            reload();
+                            location.href = '/';
                           }}
                           menuExtras={
                             <MenuItem

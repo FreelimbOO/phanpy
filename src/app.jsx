@@ -414,7 +414,7 @@ const PATH_RESTORE_TIME_LIMIT = 1 * 60 * 60 * 1000; // 1 hour, should be good en
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     const account = getCurrentAccount();
-    return !!account;
+    return !!account?.accessToken;
   });
   const [uiState, setUIState] = useState('loading');
   __BENCHMARK.start('app-init');
