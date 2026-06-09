@@ -56,6 +56,7 @@ import Search from './pages/search';
 import StatusRoute from './pages/status-route';
 import Trending from './pages/trending';
 import Welcome from './pages/welcome';
+import Blog from './pages/blog';
 import PublicTimeline from './pages/public-timeline';
 import {
   api,
@@ -821,6 +822,7 @@ function SecondaryRoutes() {
           </AuthRoute>
         }
       />
+      <Route path="/blog" element={<Blog />} />
       <Route path="/l">
         <Route
           index

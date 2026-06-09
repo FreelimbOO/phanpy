@@ -42,6 +42,7 @@ const TYPES = [
   'hashtag',
   'bookmarks',
   'favourites',
+  'blog',
   'profile', // Own profile
   // NOTE: Hide for now
   // 'account-statuses', // Need @acct search first
@@ -59,6 +60,7 @@ const TYPE_TEXT = {
   trending: msg`Trending`,
   mentions: msg`Mentions`,
   profile: msg`Profile`,
+  blog: msg`Blog`,
 };
 const TYPE_PARAMS = {
   list: [
@@ -218,6 +220,12 @@ export const SHORTCUTS_META = {
     title: msg`Likes`,
     path: '/f',
     icon: 'heart',
+  },
+  blog: {
+    id: 'blog',
+    title: msg`Blog`,
+    path: '/blog',
+    icon: 'document',
   },
   hashtag: {
     id: 'hashtag',

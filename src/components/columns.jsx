@@ -3,6 +3,7 @@ import { useHotkeys } from 'react-hotkeys-hook';
 import { useSnapshot } from 'valtio';
 
 import AccountStatuses from '../pages/account-statuses';
+import Blog from '../pages/blog';
 import Bookmarks from '../pages/bookmarks';
 import Favourites from '../pages/favourites';
 import Following from '../pages/following';
@@ -47,6 +48,7 @@ function Columns() {
       trending: Trending,
       search: Search,
       profile: AccountStatuses,
+      blog: Blog,
     }[type];
     if (!Component) return null;
     // Don't show Search column with no query, for now
