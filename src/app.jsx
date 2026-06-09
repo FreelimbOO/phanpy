@@ -56,6 +56,7 @@ import Search from './pages/search';
 import StatusRoute from './pages/status-route';
 import Trending from './pages/trending';
 import Welcome from './pages/welcome';
+import PublicTimeline from './pages/public-timeline';
 import {
   api,
   hasInstance,
@@ -658,12 +659,17 @@ function App() {
   );
 }
 
+const { PHANPY_DEFAULT_INSTANCE: ROOT_DEFAULT_INSTANCE } = import.meta.env;
+
 function Root() {
   const isLoggedIn = useAuth();
   if (isLoggedIn) {
     __BENCHMARK.end('time-to-isLoggedIn');
   }
-  return isLoggedIn ? <Home /> : <Welcome />;
+  if (!isLoggedIn) {
+    return ROOT_DEFAULT_INSTANCE ? <PublicTimeline /> : <Welcome />;
+  }
+  return <Home />;
 }
 
 function isRootPath(pathname) {
@@ -900,11 +906,4 @@ function SecondaryRoutes() {
         <Route index element={<Public />} />
         <Route path="l" element={<Public local />} />
       </Route>
-      <Route path="/:instance?/trending" element={<Trending />} />
-      <Route path="/:instance?/search" element={<Search />} />
-      {/* <Route path="/:anything" element={<NotFound />} /> */}
-    </Routes>
-  );
-}
-
-export { App };
+      <Route path="/:instance?/trendi
