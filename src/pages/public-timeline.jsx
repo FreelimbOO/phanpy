@@ -172,7 +172,10 @@ function PublicTimeline() {
           >
             Sign up
           </a>
-          <Link to="/login" class="button plain6">
+          <Link
+            to={DEFAULT_INSTANCE ? `/login?instance=${DEFAULT_INSTANCE}&submit=1` : '/login'}
+            class="button plain6"
+          >
             Log in
           </Link>
         </div>
