@@ -1529,6 +1529,18 @@ msgstr ""
 msgid "Blog"
 msgstr ""
 
+#: src/pages/blog.jsx
+msgid "Unable to load blog posts."
+msgstr ""
+
+#: src/pages/blog.jsx
+msgid "Retry"
+msgstr ""
+
+#: src/pages/blog.jsx
+msgid "Open blog"
+msgstr ""
+
 #: src/components/nav-menu.jsx:265
 #: src/pages/followed-hashtags.jsx:15
 #: src/pages/followed-hashtags.jsx:45
