@@ -127,6 +127,7 @@ function Blog({ columnMode }) {
   useTitle(t`Blog`, '/blog');
   const [posts, setPosts] = useState([]);
   const [uiState, setUIState] = useState('loading');
+  const [errorMsg, setErrorMsg] = useState('');
   const scrollableRef = useRef();
 
   useEffect(() => {
@@ -140,6 +141,7 @@ function Blog({ columnMode }) {
         setUIState('default');
       } catch (e) {
         console.error('Blog feed fetch error', e);
+        setErrorMsg(e?.message || String(e));
         setUIState('error');
       }
     })();
@@ -179,6 +181,11 @@ function Blog({ columnMode }) {
           {uiState === 'error' && (
             <div class="blog-error">
               <Trans>Unable to load blog posts.</Trans>
+              {errorMsg && (
+                <div style={{ fontSize: '0.8em', marginTop: 4, opacity: 0.7 }}>
+                  {errorMsg}
+                </div>
+              )}
               <br />
               <button
                 class="textual"
@@ -190,7 +197,10 @@ function Blog({ columnMode }) {
                       setPosts(parseFeed(text));
                       setUIState('default');
                     })
-                    .catch(() => setUIState('error'));
+                    .catch((e) => {
+                      setErrorMsg(e?.message || String(e));
+                      setUIState('error');
+                    });
                 }}
               >
                 <Trans>Retry</Trans>
