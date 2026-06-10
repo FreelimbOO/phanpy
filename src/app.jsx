@@ -768,9 +768,10 @@ function SecondaryRoutes() {
   // const snapStates = useSnapshot(states);
   const location = useLocation();
 
-  // Account pages and root pages (login, welcome) are handled by PrimaryRoutes — no secondary panel needed
-  if (isAccountPage(location.pathname)) return null;
-  if (isRootPath(location.pathname)) return null;
+  // ALL hooks must be called unconditionally before any early returns (Rules of Hooks).
+  // Calling hooks after conditional returns causes React/Preact to see a different
+  // hook count when navigating between account/root pages and secondary pages,
+  // which silently crashes the component and breaks all subsequent navigation.
 
   // const prevLocation = snapStates.prevLocation;
   const backgroundLocation = useRef(getPrevLocation());
@@ -799,6 +800,11 @@ function SecondaryRoutes() {
       store.session.del('prevLocation');
     }
   }, [isModalPage]);
+
+  // Account pages and root pages (login, welcome) are handled by PrimaryRoutes — no secondary panel needed.
+  // These returns are AFTER all hooks to satisfy the Rules of Hooks.
+  if (isAccountPage(location.pathname)) return null;
+  if (isRootPath(location.pathname)) return null;
 
   if (isModalPage) {
     if (!backgroundLocation.current)
