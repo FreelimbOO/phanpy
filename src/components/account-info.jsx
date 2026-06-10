@@ -149,6 +149,7 @@ function AccountInfo({
   const isString = typeof account === 'string';
   const [info, setInfo] = useState(isString ? null : account);
   const [reloadCount, reload] = useReducer((c) => c + 1, 0);
+  const [fetchError, setFetchError] = useState(null);
 
   const sameCurrentInstance = useMemo(
     () => instance === currentInstance,
@@ -167,9 +168,11 @@ function AccountInfo({
         states.accounts[`${info.id}@${instance}`] = info;
         setInfo(info);
         setUIState('default');
+        setFetchError(null);
       } catch (e) {
         console.error(e);
         setInfo(null);
+        setFetchError(e);
         setUIState('error');
       }
     })();
@@ -418,6 +421,25 @@ function AccountInfo({
                 </a>
               </p>
             )}
+            {/* When GoToSocial (or any server) returns 401, offer a direct link to
+                the server's own web profile page which is publicly accessible */}
+            {isString &&
+              !isStringURL &&
+              instance &&
+              (fetchError?.statusCode === 401 ||
+                fetchError?.response?.status === 401 ||
+                String(fetchError).includes('401') ||
+                String(fetchError).includes('Unauthorized')) && (
+                <p>
+                  <a
+                    href={`https://${instance}/@${account}`}
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    View profile on {instance} <Icon icon="external" />
+                  </a>
+                </p>
+              )}
             {isString && (
               <button type="button" onClick={reload}>
                 <Trans>Try again</Trans>
