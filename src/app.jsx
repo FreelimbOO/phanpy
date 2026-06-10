@@ -763,8 +763,9 @@ function SecondaryRoutes() {
   // const snapStates = useSnapshot(states);
   const location = useLocation();
 
-  // Account pages are handled as a single panel by PrimaryRoutes — no secondary panel needed
+  // Account pages and root pages (login, welcome) are handled by PrimaryRoutes — no secondary panel needed
   if (isAccountPage(location.pathname)) return null;
+  if (isRootPath(location.pathname)) return null;
 
   // const prevLocation = snapStates.prevLocation;
   const backgroundLocation = useRef(getPrevLocation());
