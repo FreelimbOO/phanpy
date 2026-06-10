@@ -493,11 +493,13 @@ function App() {
           setIsLoggedIn(true);
           setUIState('default');
 
-          // Redirect after successful login
+          // Redirect after successful login.
+          // With HashRouter all in-app routes are hash paths (e.g. "/notifications"),
+          // so prefix with "/#" to produce a valid URL like "https://…/#/notifications".
           const redirectPath = store.session.get('loginRedirect');
           if (redirectPath) {
             store.session.del('loginRedirect');
-            window.location.href = redirectPath;
+            window.location.href = '/#' + redirectPath;
           } else {
             window.location.href = '/';
           }
