@@ -317,8 +317,8 @@ function AccountStatuses({ columnMode, ...props }) {
   useTitle(title, '/:instance?/a/:id');
 
   const fetchAccount = useCallback(() => {
-    return memFetchAccount(id, masto);
-  }, [id, masto]);
+    return memFetchAccount(id, masto, instance);
+  }, [id, masto, instance]);
 
   useEffect(() => {
     (async () => {
@@ -865,10 +865,12 @@ function isAccountId(str) {
   return /^\d+$/.test(str) || str.length >= 16;
 }
 
-async function fetchAccount(id, masto) {
+async function fetchAccount(id, masto, instance) {
   if (!isAccountId(id)) {
-    // id is a username — resolve it to an account via lookup
-    return masto.v1.accounts.lookup({ acct: id });
+    // id is a username — qualify it with the instance to force a local-only
+    // lookup and avoid GoToSocial returning a cached remote federated account
+    const qualifiedAcct = instance ? `${id}@${instance}` : id;
+    return masto.v1.accounts.lookup({ acct: qualifiedAcct });
   }
   return masto.v1.accounts.$select(id).fetch();
 }
