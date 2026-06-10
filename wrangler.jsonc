@@ -4,4 +4,7 @@
   "assets": {
     "directory": "./dist",
   },
+  "build": {
+    "command": "npm run build"
+  }
 }
