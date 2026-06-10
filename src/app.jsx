@@ -707,10 +707,13 @@ const PrimaryRoutes = memo(() => {
   const location = useLocation();
   const nonRootLocation = useMemo(() => {
     const { pathname } = location;
-    // Use the actual location for root paths (login, welcome…) AND account pages
-    // so PrimaryRoutes can match their routes directly. For everything else,
-    // force location to "/" so Root (home timeline) renders as background.
-    return !isRootPath(pathname) && !isAccountPage(pathname);
+    // For root paths (login, welcome…) and account pages, return null so
+    // PrimaryRoutes uses the actual location (single-panel mode).
+    // For everything else (/notifications, /mentions, etc.), return a fixed
+    // "/" location object so PrimaryRoutes always renders the home timeline
+    // as the background panel while SecondaryRoutes renders the overlay.
+    if (isRootPath(pathname) || isAccountPage(pathname)) return null;
+    return { pathname: '/', search: '', hash: '' };
   }, [location]);
 
   return (
