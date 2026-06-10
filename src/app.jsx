@@ -677,16 +677,26 @@ function isRootPath(pathname) {
   return /^\/(login|welcome|_sandbox|_qr-scan|_mock)/i.test(pathname);
 }
 
+// Account profile pages are routed through PrimaryRoutes as a single panel
+function isAccountPage(pathname) {
+  return /^\/([\w.-]+\/)?a\//i.test(pathname);
+}
+
 const PrimaryRoutes = memo(() => {
   const location = useLocation();
   const nonRootLocation = useMemo(() => {
     const { pathname } = location;
-    return !isRootPath(pathname);
+    // Use the actual location for root paths (login, welcome…) AND account pages
+    // so PrimaryRoutes can match their routes directly. For everything else,
+    // force location to "/" so Root (home timeline) renders as background.
+    return !isRootPath(pathname) && !isAccountPage(pathname);
   }, [location]);
 
   return (
     <Routes location={nonRootLocation || location}>
       <Route path="/" element={<Root />} />
+      {/* Account pages render single-panel here; SecondaryRoutes returns null for them */}
+      <Route path="/:instance?/a/:id" element={<AccountStatuses />} />
       <Route path="/login" element={<Login />} />
       <Route path="/welcome" element={<Welcome />} />
       <Route
@@ -733,6 +743,10 @@ function getPrevLocation() {
 function SecondaryRoutes() {
   // const snapStates = useSnapshot(states);
   const location = useLocation();
+
+  // Account pages are handled as a single panel by PrimaryRoutes — no secondary panel needed
+  if (isAccountPage(location.pathname)) return null;
+
   // const prevLocation = snapStates.prevLocation;
   const backgroundLocation = useRef(getPrevLocation());
 
