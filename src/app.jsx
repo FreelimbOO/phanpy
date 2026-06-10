@@ -497,7 +497,9 @@ function App() {
           const redirectPath = store.session.get('loginRedirect');
           if (redirectPath) {
             store.session.del('loginRedirect');
-            window.location.hash = redirectPath;
+            window.location.href = redirectPath;
+          } else {
+            window.location.href = '/';
           }
         } else {
           setUIState('error');
