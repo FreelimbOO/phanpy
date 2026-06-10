@@ -9,7 +9,7 @@ import { I18nProvider } from '@lingui/react';
 // https://bugzilla.mozilla.org/show_bug.cgi?id=1423593
 // import '@formatjs/intl-segmenter/polyfill';
 import { render } from 'preact';
-import { HashRouter } from 'react-router-dom';
+import { BrowserRouter } from 'react-router-dom';
 
 import { App } from './app';
 import { IconSpriteProvider } from './components/icon-sprite-manager';
@@ -26,11 +26,11 @@ if (import.meta.env.DEV) {
 
 render(
   <I18nProvider i18n={i18n}>
-    <HashRouter>
+    <BrowserRouter>
       <IconSpriteProvider>
         <App />
       </IconSpriteProvider>
-    </HashRouter>
+    </BrowserRouter>
   </I18nProvider>,
   document.getElementById('app'),
 );
