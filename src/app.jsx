@@ -427,6 +427,29 @@ function App() {
 
   useEffect(() => {
     const instanceURL = store.local.get('instanceURL');
+
+    // Handle OAuth error callback (e.g. server_error from GoToSocial).
+    // This happens with the redirect flow when the auth server fails.
+    // Without this, the app silently ignores the error and shows the public timeline.
+    const oauthError = new URLSearchParams(window.location.search).get('error');
+    const oauthErrorDesc = new URLSearchParams(window.location.search).get(
+      'error_description',
+    );
+    if (oauthError) {
+      console.error('OAuth error:', oauthError, oauthErrorDesc);
+      // Clean up the error from the URL so it doesn't linger
+      window.history.replaceState({}, document.title, '/');
+      // Show a helpful message. server_error is almost always a stale GoToSocial
+      // session — clearing cookies for social.freelimbo.com and retrying fixes it.
+      const msg =
+        oauthError === 'server_error'
+          ? `Login failed (server_error from GoToSocial).\n\nFix: clear all cookies for social.freelimbo.com in your browser, then try again.`
+          : `Login failed: ${oauthError}${oauthErrorDesc ? `\n${oauthErrorDesc}` : ''}`;
+      alert(msg);
+      setUIState('default');
+      return;
+    }
+
     const code = decodeURIComponent(
       (window.location.search.match(/code=([^&]+)/) || [, ''])[1],
     );
