@@ -64,6 +64,7 @@ logger.warn = (msg, options) => {
 };
 
 // https://vitejs.dev/config/
+// build: 2026-06-10
 export default defineConfig({
   customLogger: logger,
   base: '/',
