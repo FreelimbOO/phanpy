@@ -20,8 +20,14 @@ const SCOPES = 'read write follow push';
 const sameSite = WEBSITE
   ? WEBSITE.toLowerCase().includes(location.hostname)
   : false;
-const currentLocation = location.origin + location.pathname;
-const REDIRECT_URI = DEV || !sameSite ? currentLocation : WEBSITE;
+// Always use /login as the redirect URI so it stays consistent regardless of
+// which page the user is on when they initiate login (avoids redirect_uri mismatch
+// when the cached OAuth app was registered from a different pathname).
+const REDIRECT_URI = DEV
+  ? location.origin + location.pathname
+  : sameSite
+  ? WEBSITE
+  : location.origin + '/login';
 
 export async function registerApplication({ instanceURL }) {
   const registrationParams = new URLSearchParams({
