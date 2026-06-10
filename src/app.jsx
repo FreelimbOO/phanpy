@@ -910,7 +910,7 @@ function SecondaryRoutes() {
       </Route>
       <Route path="/:instance?/trending" element={<Trending />} />
       <Route path="/:instance?/search" element={<Search />} />
-      {/* <Route path="/:anything" element={<NotFound />} /> */}
+      <Route path="/:anything" element={<NotFound />} />
     </Routes>
   );
 }
