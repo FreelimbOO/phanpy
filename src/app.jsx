@@ -660,7 +660,10 @@ function App() {
   );
 }
 
-const { PHANPY_DEFAULT_INSTANCE: ROOT_DEFAULT_INSTANCE } = import.meta.env;
+const {
+  PHANPY_DEFAULT_INSTANCE: ROOT_DEFAULT_INSTANCE,
+  PHANPY_DEFAULT_ACCOUNT: ROOT_DEFAULT_ACCOUNT,
+} = import.meta.env;
 
 function Root() {
   const isLoggedIn = useAuth();
@@ -668,9 +671,24 @@ function Root() {
     __BENCHMARK.end('time-to-isLoggedIn');
   }
   if (!isLoggedIn) {
+    // Redirect "/" to "/a/<default-account>" so both URLs show the same content
+    if (ROOT_DEFAULT_ACCOUNT) {
+      return <Navigate to={`/a/${ROOT_DEFAULT_ACCOUNT}`} replace />;
+    }
     return ROOT_DEFAULT_INSTANCE ? <PublicTimeline /> : <Welcome />;
   }
   return <Home />;
+}
+
+// Renders the public timeline for the default account, AccountStatuses for everyone else.
+// This keeps /a/<default> publicly accessible (no auth needed) while still
+// supporting /a/<other> for authenticated profile browsing.
+function AccountOrTimeline() {
+  const { id, instance } = useParams();
+  if (!instance && ROOT_DEFAULT_ACCOUNT && id === ROOT_DEFAULT_ACCOUNT) {
+    return <PublicTimeline />;
+  }
+  return <AccountStatuses />;
 }
 
 function isRootPath(pathname) {
@@ -696,7 +714,7 @@ const PrimaryRoutes = memo(() => {
     <Routes location={nonRootLocation || location}>
       <Route path="/" element={<Root />} />
       {/* Account pages render single-panel here; SecondaryRoutes returns null for them */}
-      <Route path="/:instance?/a/:id" element={<AccountStatuses />} />
+      <Route path="/:instance?/a/:id" element={<AccountOrTimeline />} />
       <Route path="/login" element={<Login />} />
       <Route path="/welcome" element={<Welcome />} />
       <Route
