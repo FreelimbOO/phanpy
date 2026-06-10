@@ -865,11 +865,16 @@ function isAccountId(str) {
   return /^\d+$/.test(str) || str.length >= 16;
 }
 
+const { PHANPY_DEFAULT_INSTANCE: DEFAULT_INSTANCE } = import.meta.env;
+
 async function fetchAccount(id, masto, instance) {
   if (!isAccountId(id)) {
-    // id is a username — qualify it with the instance to force a local-only
-    // lookup and avoid GoToSocial returning a cached remote federated account
-    const qualifiedAcct = instance ? `${id}@${instance}` : id;
+    // Qualify with the app's home instance (DEFAULT_INSTANCE) so that even when
+    // the logged-in user is on a different Mastodon server, the lookup resolves
+    // the correct local account via federation rather than returning a namesake
+    // account on the user's own instance.
+    const homeInstance = DEFAULT_INSTANCE || instance;
+    const qualifiedAcct = homeInstance ? `${id}@${homeInstance}` : id;
     return masto.v1.accounts.lookup({ acct: qualifiedAcct });
   }
   return masto.v1.accounts.$select(id).fetch();
