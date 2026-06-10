@@ -36,6 +36,7 @@ import useTitle from '../utils/useTitle';
 
 const LIMIT = 20;
 const MIN_YEAR = 1983;
+const { PHANPY_DEFAULT_INSTANCE: DEFAULT_INSTANCE } = import.meta.env;
 const MIN_YEAR_MONTH = `${MIN_YEAR}-01`; // Birth of the Internet
 
 const supportsInputMonth = mem(() => {
@@ -106,8 +107,10 @@ function AccountStatuses({ columnMode, ...props }) {
   const excludeBoosts = !!searchParams.get('boosts');
   const tagged = searchParams.get('tagged');
   const media = !!searchParams.get('media');
+  // When no instance is in the URL, prefer the home instance (DEFAULT_INSTANCE)
+  // so all API calls — account lookup, statuses, featured tags — go to the right server.
   const { masto, instance, authenticated } = api({
-    instance: params?.instance,
+    instance: params?.instance || DEFAULT_INSTANCE || undefined,
   });
   const { masto: currentMasto, instance: currentInstance } = api();
   const accountStatusesIterator = useRef();
@@ -865,17 +868,11 @@ function isAccountId(str) {
   return /^\d+$/.test(str) || str.length >= 16;
 }
 
-const { PHANPY_DEFAULT_INSTANCE: DEFAULT_INSTANCE } = import.meta.env;
-
 async function fetchAccount(id, masto, instance) {
   if (!isAccountId(id)) {
-    // Qualify with the app's home instance (DEFAULT_INSTANCE) so that even when
-    // the logged-in user is on a different Mastodon server, the lookup resolves
-    // the correct local account via federation rather than returning a namesake
-    // account on the user's own instance.
-    const homeInstance = DEFAULT_INSTANCE || instance;
-    const qualifiedAcct = homeInstance ? `${id}@${homeInstance}` : id;
-    return masto.v1.accounts.lookup({ acct: qualifiedAcct });
+    // masto is already pointed at the correct instance (DEFAULT_INSTANCE when
+    // no instance prefix is in the URL), so a plain lookup by username is enough.
+    return masto.v1.accounts.lookup({ acct: id });
   }
   return masto.v1.accounts.$select(id).fetch();
 }
