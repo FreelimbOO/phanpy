@@ -66,7 +66,7 @@ logger.warn = (msg, options) => {
 // https://vitejs.dev/config/
 export default defineConfig({
   customLogger: logger,
-  base: './',
+  base: '/',
   envPrefix: allowedEnvPrefixes,
   appType: 'mpa',
   mode: NODE_ENV,
