@@ -672,7 +672,7 @@ function AccountInfo({
                           backgroundMask: headerStatic,
                           caption: acct.includes('@')
                             ? acct
-                            : `${acct}@${instance}`,
+                            : `${acct}@${window.location.host}`,
                           onScannerClick: handleScannerClick,
                         };
                       }}

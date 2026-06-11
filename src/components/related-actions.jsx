@@ -586,7 +586,7 @@ function RelatedActions({
                   text: phanpyProfileURL,
                   arena: avatarStatic,
                   backgroundMask: headerStatic,
-                  caption: acct.includes('@') ? acct : `${acct}@${instance}`,
+                  caption: acct.includes('@') ? acct : `${acct}@${window.location.host}`,
                   onScannerClick: handleScannerClick,
                 };
               }}
@@ -867,7 +867,7 @@ function RelatedActions({
                   text: phanpyProfileURL,
                   arena: avatarStatic,
                   backgroundMask: headerStatic,
-                  caption: acct.includes('@') ? acct : `${acct}@${instance}`,
+                  caption: acct.includes('@') ? acct : `${acct}@${window.location.host}`,
                   onScannerClick: handleScannerClick,
                 };
               }}
