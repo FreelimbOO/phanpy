@@ -827,7 +827,6 @@ function AccountInfo({
                   <div class="stats">
                     <LinkOrDiv
                       tabIndex={0}
-                      to={accountLink}
                       onClick={() => {
                         // states.showAccount = false;
                         setTimeout(() => {
@@ -883,7 +882,6 @@ function AccountInfo({
                     <LinkOrDiv
                       class="insignificant"
                       tabIndex={0}
-                      to={accountLink}
                       onClick={() => {
                         // states.showAccount = false;
                         setTimeout(() => {
@@ -920,13 +918,13 @@ function AccountInfo({
                     <LinkOrDiv
                       class="insignificant"
                       to={accountLink}
-                      // onClick={
-                      //   standalone
-                      //     ? undefined
-                      //     : () => {
-                      //         hideAllModals();
-                      //       }
-                      // }
+                      onClick={
+                        standalone
+                          ? undefined
+                          : () => {
+                              hideAllModals();
+                            }
+                      }
                     >
                       <Plural
                         value={statusesCount}
