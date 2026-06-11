@@ -581,7 +581,7 @@ function RelatedActions({
                 const { PHANPY_DEFAULT_INSTANCE: DEFAULT_INSTANCE } = import.meta.env;
                 const acctUsername = acct ? acct.split('@')[0] : id;
                 const profilePath = instance && instance !== DEFAULT_INSTANCE ? `/${instance}/a/${acctUsername}` : `/a/${acctUsername}`;
-                const phanpyProfileURL = `${window.location.origin}${profilePath}`;
+                const phanpyProfileURL = `${window.location.origin}/#${profilePath}`;
                 states.showQrCodeModal = {
                   text: phanpyProfileURL,
                   arena: avatarStatic,
@@ -862,7 +862,7 @@ function RelatedActions({
                 const { PHANPY_DEFAULT_INSTANCE: DEFAULT_INSTANCE } = import.meta.env;
                 const acctUsername = acct ? acct.split('@')[0] : id;
                 const profilePath = instance && instance !== DEFAULT_INSTANCE ? `/${instance}/a/${acctUsername}` : `/a/${acctUsername}`;
-                const phanpyProfileURL = `${window.location.origin}${profilePath}`;
+                const phanpyProfileURL = `${window.location.origin}/#${profilePath}`;
                 states.showQrCodeModal = {
                   text: phanpyProfileURL,
                   arena: avatarStatic,

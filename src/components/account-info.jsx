@@ -667,7 +667,7 @@ function AccountInfo({
                     <MenuItem
                       onClick={() => {
                         states.showQrCodeModal = {
-                          text: `${window.location.origin}${accountLink}`,
+                          text: `${window.location.origin}/#${accountLink}`,
                           arena: avatarStatic,
                           backgroundMask: headerStatic,
                           caption: acct.includes('@')
