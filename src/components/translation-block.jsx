@@ -326,7 +326,7 @@ function TranslationBlock({
             <span>→ {targetLangText}</span>
             <Loader abrupt hidden={uiState !== 'loading'} />
           </div>
-          {          {uiState === 'error' ? (
+          {uiState === 'error' ? (
             <p class="ui-state">
               <Trans>Failed to translate</Trans>
             </p>
