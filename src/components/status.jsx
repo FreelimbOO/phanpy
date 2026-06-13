@@ -512,7 +512,24 @@ function Status({
     }, 1000);
     return () => clearTimeout(timer);
   }, [content, _language]);
-  const language = _language || languageAutoDetected;
+
+  // CJK override: servers (incl. GoToSocial) often tag CJK posts as 'en'.
+  // Run this unconditionally so we correct _language when needed.
+  // CJK Unicode blocks are unambiguous and safe to trust over the API value.
+  const [cjkLang, setCjkLang] = useState(null);
+  useEffect(() => {
+    if (!content) return;
+    const text = getHTMLTextForDetectLang(content, emojis)?.trim();
+    if (!text) return;
+    const cjkCount = (text.match(/[\u2E80-\u9FFF\uF900-\uFAFF\u3400-\u4DBF]/g) || []).length;
+    if (cjkCount / text.length > 0.15) {
+      if (/[\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F]/.test(text)) setCjkLang('ko');
+      else if (/[\u3041-\u309F\u30A0-\u30FF]/.test(text)) setCjkLang('ja');
+      else setCjkLang('zh');
+    }
+  }, [content]);
+
+  const language = cjkLang || _language || languageAutoDetected;
 
   // if (!mediaAttachments?.length) mediaFirst = false;
   const hasMediaAttachments = !!mediaAttachments?.length;
