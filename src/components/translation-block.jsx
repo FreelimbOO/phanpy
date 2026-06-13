@@ -151,6 +151,27 @@ function TranslationBlock({
           return result;
         }
       }
+      if (TRANSLANG_INSTANCES.length === 0) {
+        // No Translang configured — fall back to MyMemory (free, no key needed)
+        const srcLang =
+          source === 'auto' ? sourceLanguage || 'zh' : source;
+        const res = await fetch(
+          `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${encodeURIComponent(srcLang)}|${encodeURIComponent(target)}`,
+          { priority: 'low', referrerPolicy: 'no-referrer', signal },
+        );
+        if (!res.ok) throw new Error(res.statusText);
+        const json = await res.json();
+        if (
+          json.responseStatus === 200 &&
+          json.responseData?.translatedText
+        ) {
+          return {
+            content: json.responseData.translatedText,
+            detectedSourceLanguage: srcLang,
+          };
+        }
+        throw new Error(json.responseDetails || 'MyMemory translation failed');
+      }
       return mini
         ? await throttledTranslangTranslate({ signal, text, source, target })
         : await translangTranslate(text, source, target);
@@ -305,7 +326,7 @@ function TranslationBlock({
             <span>→ {targetLangText}</span>
             <Loader abrupt hidden={uiState !== 'loading'} />
           </div>
-          {uiState === 'error' ? (
+          {          {uiState === 'error' ? (
             <p class="ui-state">
               <Trans>Failed to translate</Trans>
             </p>
@@ -335,4 +356,4 @@ function TranslationBlock({
   );
 }
 
-export default TRANSLANG_INSTANCES?.length ? TranslationBlock : () => null;
+export default TranslationBlock;
