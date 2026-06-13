@@ -228,6 +228,22 @@ const detectLang = pmem(async (text) => {
     return null;
   }
 
+  // CJK heuristic: both tinyld/light AND Chrome's LanguageDetector can
+  // misidentify CJK scripts (e.g. Traditional Chinese detected as English).
+  // CJK characters are unambiguous — run this FIRST before any AI or library.
+  // Ranges: CJK Radicals+Unified (U+2E80-U+9FFF), Compat (U+F900-U+FAFF),
+  //         CJK Extension A (U+3400-U+4DBF)
+  const _cjkCount = (text.match(/[⺀-鿿豈-﫿㐀-䶿]/g) || []).length;
+  if (_cjkCount / text.length > 0.15) {
+    // Hangul syllables / jamo → Korean
+    if (/[가-힯ᄀ-ᇿ㄰-㆏]/.test(text)) return 'ko';
+    // Hiragana / Katakana → Japanese
+    if (/[ぁ-ゟ゠-ヿ]/.test(text)) return 'ja';
+    // Remaining CJK → Chinese
+    console.log('💬 DETECTLANG CJK heuristic → zh', text);
+    return 'zh';
+  }
+
   if (langDetector) {
     const langs = await langDetector.detect(text);
     console.groupCollapsed(
@@ -240,22 +256,6 @@ const detectLang = pmem(async (text) => {
     if (lang?.detectedLanguage && lang?.confidence > 0.5) {
       return lang.detectedLanguage;
     }
-  }
-
-  // CJK heuristic: tinyld/light misidentifies CJK scripts as Latin languages
-  // (e.g. Traditional Chinese detected as English on mobile Chrome where the
-  // browser AI LanguageDetector is unavailable). Detect by unique script
-  // characters — these are unambiguous and tinyld consistently gets them wrong.
-  const cjkRatio =
-    (text.match(/[⺀-鿿豈-﫿㐀-䶿]/g) || []).length /
-    text.length;
-  if (cjkRatio > 0.15) {
-    // Hangul → Korean
-    if (/[가-힯ᄀ-ᇿ㄰-㆏]/.test(text)) return 'ko';
-    // Hiragana / Katakana → Japanese
-    if (/[぀-ゟ゠-ヿ]/.test(text)) return 'ja';
-    // Remaining CJK → Chinese
-    return 'zh';
   }
 
   const { detectAll } = await import('tinyld/light');
@@ -3719,26 +3719,4 @@ function FilteredStatus({
                 class="status-link"
                 to={url}
                 onClick={() => {
-                  setShowPeek(false);
-                }}
-                data-read-more={_(readMoreText)}
-              >
-                <Status status={status} instance={instance} size="s" readOnly />
-              </Link>
-            </main>
-          </div>
-        </Modal>
-      )}
-    </div>
-  );
-}
-
-export default memo(Status, (oldProps, newProps) => {
-  // Shallow equal all props except 'status'
-  // This will be pure static until status ID changes
-  const { status, ...restOldProps } = oldProps;
-  const { status: newStatus, ...restNewProps } = newProps;
-  return (
-    status?.id === newStatus?.id && shallowEqual(restOldProps, restNewProps)
-  );
-});
+      
