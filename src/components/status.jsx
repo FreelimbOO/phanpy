@@ -242,6 +242,22 @@ const detectLang = pmem(async (text) => {
     }
   }
 
+  // CJK heuristic: tinyld/light misidentifies CJK scripts as Latin languages
+  // (e.g. Traditional Chinese detected as English on mobile Chrome where the
+  // browser AI LanguageDetector is unavailable). Detect by unique script
+  // characters — these are unambiguous and tinyld consistently gets them wrong.
+  const cjkRatio =
+    (text.match(/[⺀-鿿豈-﫿㐀-䶿]/g) || []).length /
+    text.length;
+  if (cjkRatio > 0.15) {
+    // Hangul → Korean
+    if (/[가-힯ᄀ-ᇿ㄰-㆏]/.test(text)) return 'ko';
+    // Hiragana / Katakana → Japanese
+    if (/[぀-ゟ゠-ヿ]/.test(text)) return 'ja';
+    // Remaining CJK → Chinese
+    return 'zh';
+  }
+
   const { detectAll } = await import('tinyld/light');
   const langs = detectAll(text);
   console.groupCollapsed(
