@@ -1018,11 +1018,49 @@ function Status({
   //   );
   const contentTranslationHideLanguages =
     snapStates.settings.contentTranslationHideLanguages || [];
-  const [differentLanguage, setDifferentLanguage] = useState(
-    DIFFERENT_LANG_CHECK[
-      diffLangCheckCacheKey(language, contentTranslationHideLanguages)
-    ],
-  );
+  const [differentLanguage, setDifferentLanguage] = useState(() => {
+    // Check cache first (e.g. user already triggered detection this session)
+    const cached =
+      DIFFERENT_LANG_CHECK[
+        diffLangCheckCacheKey(language, contentTranslationHideLanguages)
+      ];
+    if (cached) return true;
+    // CJK synchronous fast-path: run at first render so inline-translate
+    // shows immediately, without waiting for the async cjkLang effect chain.
+    // Servers like GoToSocial often tag CJK posts as 'en', so we can't trust
+    // _language here — we inspect the raw text directly.
+    if (content) {
+      const text = getHTMLTextForDetectLang(content, emojis)?.trim();
+      if (text) {
+        const cjkCount = (
+          text.match(/[\u2E80-\u9FFF\uF900-\uFAFF\u3400-\u4DBF]/g) || []
+        ).length;
+        if (cjkCount / text.length > 0.15) {
+          const cjkDetected = /[\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F]/.test(
+            text,
+          )
+            ? 'ko'
+            : /[\u3041-\u309F\u30A0-\u30FF]/.test(text)
+              ? 'ja'
+              : 'zh';
+          const targetLang = getTranslateTargetLanguage(true);
+          const isDifferent =
+            cjkDetected !== targetLang &&
+            !localeMatch([cjkDetected], [targetLang]) &&
+            !contentTranslationHideLanguages.find(
+              (l) => cjkDetected === l || localeMatch([cjkDetected], [l]),
+            );
+          if (isDifferent) {
+            DIFFERENT_LANG_CHECK[
+              diffLangCheckCacheKey(cjkDetected, contentTranslationHideLanguages)
+            ] = true;
+            return true;
+          }
+        }
+      }
+    }
+    return undefined;
+  });
   useEffect(() => {
     if (!language || differentLanguage) {
       return;
@@ -3709,53 +3747,4 @@ function FilteredStatus({
         </span>
       </article>
       {!!showPeek && (
-        <Modal
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowPeek(false);
-            }
-          }}
-        >
-          <div id="filtered-status-peek" class="sheet">
-            <button
-              type="button"
-              class="sheet-close"
-              onClick={() => setShowPeek(false)}
-            >
-              <Icon icon="x" alt={t`Close`} />
-            </button>
-            <header>
-              <b class="status-filtered-badge">
-                <Trans>Filtered</Trans>
-              </b>{' '}
-              {filterTitleStr}
-            </header>
-            <main tabIndex="-1">
-              <Link
-                ref={statusPeekRef}
-                class="status-link"
-                to={url}
-                onClick={() => {
-                  setShowPeek(false);
-                }}
-                data-read-more={_(readMoreText)}
-              >
-                <Status status={status} instance={instance} size="s" readOnly />
-              </Link>
-            </main>
-          </div>
-        </Modal>
-      )}
-    </div>
-  );
-}
-
-export default memo(Status, (oldProps, newProps) => {
-  // Shallow equal all props except 'status'
-  // This will be pure static until status ID changes
-  const { status, ...restOldProps } = oldProps;
-  const { status: newStatus, ...restNewProps } = newProps;
-  return (
-    status?.id === newStatus?.id && shallowEqual(restOldProps, restNewProps)
-  );
-});
+  
