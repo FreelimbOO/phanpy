@@ -3747,4 +3747,53 @@ function FilteredStatus({
         </span>
       </article>
       {!!showPeek && (
-  
+          <Modal
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowPeek(false);
+            }
+          }}
+        >
+          <div id="filtered-status-peek" class="sheet">
+            <button
+              type="button"
+              class="sheet-close"
+              onClick={() => setShowPeek(false)}
+            >
+              <Icon icon="x" alt={t`Close`} />
+            </button>
+            <header>
+              <b class="status-filtered-badge">
+                <Trans>Filtered</Trans>
+              </b>{' '}
+              {filterTitleStr}
+            </header>
+            <main tabIndex="-1">
+              <Link
+                ref={statusPeekRef}
+                class="status-link"
+                to={url}
+                onClick={() => {
+                  setShowPeek(false);
+                }}
+                data-read-more={_(readMoreText)}
+              >
+                <Status status={status} instance={instance} size="s" readOnly />
+              </Link>
+            </main>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+export default memo(Status, (oldProps, newProps) => {
+  // Shallow equal all props except 'status'
+  // This will be pure static until status ID changes
+  const { status, ...restOldProps } = oldProps;
+  const { status: newStatus, ...restNewProps } = newProps;
+  return (
+    status?.id === newStatus?.id && shallowEqual(restOldProps, restNewProps)
+  );
+});
