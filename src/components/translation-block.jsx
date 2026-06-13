@@ -140,6 +140,7 @@ function TranslationBlock({
 
   if (!onTranslate) {
     onTranslate = async ({ text, source, target, signal }) => {
+      console.log('[TB] onTranslate called, mini=' + mini + ' supportsBrowserTranslator=' + supportsBrowserTranslator + ' TRANSLANG_INSTANCES.length=' + TRANSLANG_INSTANCES.length + ' source=' + source + ' target=' + target + ' textLen=' + text.length);
       if (supportsBrowserTranslator) {
         try {
           const result = await throttledBrowserTranslate({
@@ -180,11 +181,13 @@ function TranslationBlock({
           json.responseStatus === 200 &&
           json.responseData?.translatedText
         ) {
+          console.log('[TB] MyMemory ok: srcLang=' + srcLang + ' result=' + json.responseData.translatedText.slice(0, 40));
           return {
             content: json.responseData.translatedText,
             detectedSourceLanguage: srcLang,
           };
         }
+        console.log('[TB] MyMemory failed: status=' + json.responseStatus + ' details=' + json.responseDetails);
         throw new Error(json.responseDetails || 'MyMemory translation failed');
       }
       return mini
@@ -249,6 +252,7 @@ function TranslationBlock({
   }, []);
 
   if (mini) {
+    console.log('[TB mini] translatedContent=' + !!translatedContent + ' detectedLang=' + detectedLang + ' targetLangText=' + targetLangText + ' sameText=' + (translatedContent && translatedContent.trim() === text.trim()));
     if (
       !!translatedContent &&
       translatedContent.trim() !== text.trim() &&
