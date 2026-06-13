@@ -141,20 +141,35 @@ function TranslationBlock({
   if (!onTranslate) {
     onTranslate = async ({ text, source, target, signal }) => {
       if (supportsBrowserTranslator) {
-        const result = await throttledBrowserTranslate({
-          text,
-          source,
-          target,
-          signal,
-        });
-        if (result && !result.error) {
-          return result;
+        try {
+          const result = await throttledBrowserTranslate({
+            text,
+            source,
+            target,
+            signal,
+          });
+          if (result && !result.error) {
+            return result;
+          }
+        } catch (e) {
+          // Browser translator unavailable or failed; fall through to next option
+          console.warn('Browser translator failed:', e?.message || e);
         }
       }
       if (TRANSLANG_INSTANCES.length === 0) {
         // No Translang configured — fall back to MyMemory (free, no key needed)
-        const srcLang =
-          source === 'auto' ? sourceLanguage || 'zh' : source;
+        // Detect CJK from text directly — don't trust the server language tag
+        // (GoToSocial and others often tag CJK posts as 'en')
+        const srcLang = (() => {
+          if (source !== 'auto') return source;
+          const cjkCount = (text.match(/[\u2E80-\u9FFF\uF900-\uFAFF\u3400-\u4DBF]/g) || []).length;
+          if (cjkCount / text.length > 0.15) {
+            if (/[\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F]/.test(text)) return 'ko';
+            if (/[\u3041-\u309F\u30A0-\u30FF]/.test(text)) return 'ja';
+            return 'zh';
+          }
+          return sourceLanguage || 'zh';
+        })();
         const res = await fetch(
           `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${encodeURIComponent(srcLang)}|${encodeURIComponent(target)}`,
           { priority: 'low', referrerPolicy: 'no-referrer', signal },
