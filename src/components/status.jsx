@@ -3719,4 +3719,26 @@ function FilteredStatus({
                 class="status-link"
                 to={url}
                 onClick={() => {
-      
+                  setShowPeek(false);
+                }}
+                data-read-more={_(readMoreText)}
+              >
+                <Status status={status} instance={instance} size="s" readOnly />
+              </Link>
+            </main>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+export default memo(Status, (oldProps, newProps) => {
+  // Shallow equal all props except 'status'
+  // This will be pure static until status ID changes
+  const { status, ...restOldProps } = oldProps;
+  const { status: newStatus, ...restNewProps } = newProps;
+  return (
+    status?.id === newStatus?.id && shallowEqual(restOldProps, restNewProps)
+  );
+});
