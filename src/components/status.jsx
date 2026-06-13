@@ -2704,7 +2704,7 @@ function Status({
                     }}
                   />
                 )}
-                {console.log('🌐 TRANSLATE CHECK', {id, cjkLang, language, differentLanguage, inlineTranslate, enableTranslate, contentLength, card: !!card, spoilerText: !!spoilerText, sensitive, poll: !!poll, contentTranslation, contentTranslationAutoInline}) || (((enableTranslate || inlineTranslate) &&
+                {(((enableTranslate || inlineTranslate) &&
                   isTranslateble(content, emojis) &&
                   differentLanguage) ||
                   forceTranslate) && (
