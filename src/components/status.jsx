@@ -233,12 +233,12 @@ const detectLang = pmem(async (text) => {
   // CJK characters are unambiguous — run this FIRST before any AI or library.
   // Ranges: CJK Radicals+Unified (U+2E80-U+9FFF), Compat (U+F900-U+FAFF),
   //         CJK Extension A (U+3400-U+4DBF)
-  const _cjkCount = (text.match(/[⺀-鿿豈-﫿㐀-䶿]/g) || []).length;
+  const _cjkCount = (text.match(/[\u2E80-\u9FFF\uF900-\uFAFF\u3400-\u4DBF]/g) || []).length;
   if (_cjkCount / text.length > 0.15) {
     // Hangul syllables / jamo → Korean
-    if (/[가-힯ᄀ-ᇿ㄰-㆏]/.test(text)) return 'ko';
+    if (/[\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F]/.test(text)) return 'ko';
     // Hiragana / Katakana → Japanese
-    if (/[ぁ-ゟ゠-ヿ]/.test(text)) return 'ja';
+    if (/[\u3041-\u309F\u30A0-\u30FF]/.test(text)) return 'ja';
     // Remaining CJK → Chinese
     console.log('💬 DETECTLANG CJK heuristic → zh', text);
     return 'zh';
