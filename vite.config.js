@@ -120,10 +120,9 @@ export default defineConfig({
         // },
       ],
     }),
-    // DEBUG: temporarily disabled to allow console.log in production
-    // removeConsole({
-    //   includes: ['log', 'debug', 'info', 'warn', 'error'],
-    // }),
+    removeConsole({
+      includes: ['log', 'debug', 'info', 'warn', 'error'],
+    }),
     htmlPlugin({
       metas: [
         // Learn more: https://web.dev/articles/referrer-best-practices
