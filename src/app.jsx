@@ -708,12 +708,14 @@ function Root() {
   return <Home />;
 }
 
-// Renders the public timeline for the default account, AccountStatuses for everyone else.
+// Renders the public timeline for the default account when not logged in,
+// AccountStatuses for logged-in users and all other accounts.
 // This keeps /a/<default> publicly accessible (no auth needed) while still
 // supporting /a/<other> for authenticated profile browsing.
 function AccountOrTimeline() {
   const { id, instance } = useParams();
-  if (!instance && ROOT_DEFAULT_ACCOUNT && id === ROOT_DEFAULT_ACCOUNT) {
+  const loggedIn = !!getCurrentAccount()?.accessToken;
+  if (!loggedIn && !instance && ROOT_DEFAULT_ACCOUNT && id === ROOT_DEFAULT_ACCOUNT) {
     return <PublicTimeline />;
   }
   return <AccountStatuses />;

@@ -228,6 +228,22 @@ const detectLang = pmem(async (text) => {
     return null;
   }
 
+  // CJK heuristic: both tinyld/light AND Chrome's LanguageDetector can
+  // misidentify CJK scripts (e.g. Traditional Chinese detected as English).
+  // CJK characters are unambiguous — run this FIRST before any AI or library.
+  // Ranges: CJK Radicals+Unified (U+2E80-U+9FFF), Compat (U+F900-U+FAFF),
+  //         CJK Extension A (U+3400-U+4DBF)
+  const _cjkCount = (text.match(/[\u2E80-\u9FFF\uF900-\uFAFF\u3400-\u4DBF]/g) || []).length;
+  if (_cjkCount / text.length > 0.15) {
+    // Hangul syllables / jamo → Korean
+    if (/[\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F]/.test(text)) return 'ko';
+    // Hiragana / Katakana → Japanese
+    if (/[\u3041-\u309F\u30A0-\u30FF]/.test(text)) return 'ja';
+    // Remaining CJK → Chinese
+    console.log('💬 DETECTLANG CJK heuristic → zh', text);
+    return 'zh';
+  }
+
   if (langDetector) {
     const langs = await langDetector.detect(text);
     console.groupCollapsed(
@@ -496,7 +512,24 @@ function Status({
     }, 1000);
     return () => clearTimeout(timer);
   }, [content, _language]);
-  const language = _language || languageAutoDetected;
+
+  // CJK override: servers (incl. GoToSocial) often tag CJK posts as 'en'.
+  // Run this unconditionally so we correct _language when needed.
+  // CJK Unicode blocks are unambiguous and safe to trust over the API value.
+  const [cjkLang, setCjkLang] = useState(null);
+  useEffect(() => {
+    if (!content) return;
+    const text = getHTMLTextForDetectLang(content, emojis)?.trim();
+    if (!text) return;
+    const cjkCount = (text.match(/[\u2E80-\u9FFF\uF900-\uFAFF\u3400-\u4DBF]/g) || []).length;
+    if (cjkCount / text.length > 0.15) {
+      if (/[\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F]/.test(text)) setCjkLang('ko');
+      else if (/[\u3041-\u309F\u30A0-\u30FF]/.test(text)) setCjkLang('ja');
+      else setCjkLang('zh');
+    }
+  }, [content]);
+
+  const language = cjkLang || _language || languageAutoDetected;
 
   // if (!mediaAttachments?.length) mediaFirst = false;
   const hasMediaAttachments = !!mediaAttachments?.length;
@@ -692,21 +725,27 @@ function Status({
     snapStates.settings;
   if (!contentTranslation) enableTranslate = false;
   const inlineTranslate = useMemo(() => {
-    if (
-      !contentTranslation ||
-      !contentTranslationAutoInline ||
-      readOnly ||
-      (withinContext && !isSizeLarge) ||
-      previewMode ||
-      spoilerText ||
-      sensitive ||
-      poll ||
-      card /*||
-      mediaAttachments?.length*/
-    ) {
-      return false;
+    const _result = (() => {
+      if (
+        !contentTranslation ||
+        !contentTranslationAutoInline ||
+        readOnly ||
+        (withinContext && !isSizeLarge) ||
+        previewMode ||
+        spoilerText ||
+        sensitive ||
+        poll ||
+        card /*||
+        mediaAttachments?.length*/
+      ) {
+        return false;
+      }
+      return contentLength > 0 && contentLength <= INLINE_TRANSLATE_LIMIT;
+    })();
+    if (contentTranslationAutoInline) {
+      console.log('[STATUS inl]', content?.replace(/<[^>]*>/g,'').slice(0,12), '→', _result, {ct:contentTranslation,cai:contentTranslationAutoInline,ro:readOnly,wc:withinContext,pm:previewMode,sp:!!spoilerText,se:sensitive,poll:!!poll,card:!!card,clen:contentLength});
     }
-    return contentLength > 0 && contentLength <= INLINE_TRANSLATE_LIMIT;
+    return _result;
   }, [
     contentTranslation,
     contentTranslationAutoInline,
@@ -985,11 +1024,49 @@ function Status({
   //   );
   const contentTranslationHideLanguages =
     snapStates.settings.contentTranslationHideLanguages || [];
-  const [differentLanguage, setDifferentLanguage] = useState(
-    DIFFERENT_LANG_CHECK[
-      diffLangCheckCacheKey(language, contentTranslationHideLanguages)
-    ],
-  );
+  const [differentLanguage, setDifferentLanguage] = useState(() => {
+    // Check cache first (e.g. user already triggered detection this session)
+    const cached =
+      DIFFERENT_LANG_CHECK[
+        diffLangCheckCacheKey(language, contentTranslationHideLanguages)
+      ];
+    if (cached) return true;
+    // CJK synchronous fast-path: run at first render so inline-translate
+    // shows immediately, without waiting for the async cjkLang effect chain.
+    // Servers like GoToSocial often tag CJK posts as 'en', so we can't trust
+    // _language here — we inspect the raw text directly.
+    if (content) {
+      const text = getHTMLTextForDetectLang(content, emojis)?.trim();
+      if (text) {
+        const cjkCount = (
+          text.match(/[\u2E80-\u9FFF\uF900-\uFAFF\u3400-\u4DBF]/g) || []
+        ).length;
+        if (cjkCount / text.length > 0.15) {
+          const cjkDetected = /[\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F]/.test(
+            text,
+          )
+            ? 'ko'
+            : /[\u3041-\u309F\u30A0-\u30FF]/.test(text)
+              ? 'ja'
+              : 'zh';
+          const targetLang = getTranslateTargetLanguage(true);
+          const isDifferent =
+            cjkDetected !== targetLang &&
+            !localeMatch([cjkDetected], [targetLang]) &&
+            !contentTranslationHideLanguages.find(
+              (l) => cjkDetected === l || localeMatch([cjkDetected], [l]),
+            );
+          if (isDifferent) {
+            DIFFERENT_LANG_CHECK[
+              diffLangCheckCacheKey(cjkDetected, contentTranslationHideLanguages)
+            ] = true;
+            return true;
+          }
+        }
+      }
+    }
+    return undefined;
+  });
   useEffect(() => {
     if (!language || differentLanguage) {
       return;
@@ -2633,10 +2710,16 @@ function Status({
                     }}
                   />
                 )}
-                {(((enableTranslate || inlineTranslate) &&
-                  isTranslateble(content, emojis) &&
-                  differentLanguage) ||
-                  forceTranslate) && (
+                {((() => {
+                  const _cond = (((enableTranslate || inlineTranslate) &&
+                    isTranslateble(content, emojis) &&
+                    differentLanguage) ||
+                    forceTranslate);
+                  if (inlineTranslate || enableTranslate) {
+                    console.log('[STATUS tb]', content?.replace(/<[^>]*>/g,'').slice(0,12), '→', _cond, {en:enableTranslate,inl:inlineTranslate,tr:isTranslateble(content,emojis),dl:differentLanguage,ft:forceTranslate});
+                  }
+                  return _cond;
+                })()) && (
                   <TranslationBlock
                     forceTranslate={forceTranslate || inlineTranslate}
                     mini={!isSizeLarge && !withinContext}
@@ -3676,7 +3759,7 @@ function FilteredStatus({
         </span>
       </article>
       {!!showPeek && (
-        <Modal
+          <Modal
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowPeek(false);

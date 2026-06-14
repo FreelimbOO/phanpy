@@ -23,7 +23,6 @@ const {
   PHANPY_DEFAULT_INSTANCE: DEFAULT_INSTANCE,
   PHANPY_WEBSITE: WEBSITE,
   PHANPY_PRIVACY_POLICY_URL: PRIVACY_POLICY_URL,
-  PHANPY_DEFAULT_INSTANCE_REGISTRATION_URL: DEFAULT_INSTANCE_REGISTRATION_URL,
 } = import.meta.env;
 const appSite = WEBSITE
   ? WEBSITE.replace(/https?:\/\//g, '').replace(/\/$/, '')
@@ -62,13 +61,6 @@ function Welcome() {
               {DEFAULT_INSTANCE ? t`Log in` : t`Log in with Mastodon`}
             </Link>
           </p>
-          {DEFAULT_INSTANCE && DEFAULT_INSTANCE_REGISTRATION_URL && (
-            <p>
-              <a href={DEFAULT_INSTANCE_REGISTRATION_URL} class="button plain5">
-                <Trans>Sign up</Trans>
-              </a>
-            </p>
-          )}
           {!DEFAULT_INSTANCE && (
             <p class="insignificant">
               <small>

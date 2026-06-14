@@ -164,14 +164,6 @@ function PublicTimeline() {
           <span>{import.meta.env.PHANPY_APP_NAME || 'FreelimbO'}</span>
         </div>
         <div class="pt-header-actions">
-          <a
-            href={`https://${DEFAULT_INSTANCE}/signup`}
-            class="button plain6"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Sign up
-          </a>
           <Link
             to={DEFAULT_INSTANCE ? `/login?instance=${DEFAULT_INSTANCE}&submit=1` : '/login'}
             class="button plain6"
