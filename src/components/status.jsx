@@ -725,21 +725,27 @@ function Status({
     snapStates.settings;
   if (!contentTranslation) enableTranslate = false;
   const inlineTranslate = useMemo(() => {
-    if (
-      !contentTranslation ||
-      !contentTranslationAutoInline ||
-      readOnly ||
-      (withinContext && !isSizeLarge) ||
-      previewMode ||
-      spoilerText ||
-      sensitive ||
-      poll ||
-      card /*||
-      mediaAttachments?.length*/
-    ) {
-      return false;
+    const _result = (() => {
+      if (
+        !contentTranslation ||
+        !contentTranslationAutoInline ||
+        readOnly ||
+        (withinContext && !isSizeLarge) ||
+        previewMode ||
+        spoilerText ||
+        sensitive ||
+        poll ||
+        card /*||
+        mediaAttachments?.length*/
+      ) {
+        return false;
+      }
+      return contentLength > 0 && contentLength <= INLINE_TRANSLATE_LIMIT;
+    })();
+    if (contentTranslationAutoInline) {
+      console.log('[STATUS inl]', content?.replace(/<[^>]*>/g,'').slice(0,12), '→', _result, {ct:contentTranslation,cai:contentTranslationAutoInline,ro:readOnly,wc:withinContext,pm:previewMode,sp:!!spoilerText,se:sensitive,poll:!!poll,card:!!card,clen:contentLength});
     }
-    return contentLength > 0 && contentLength <= INLINE_TRANSLATE_LIMIT;
+    return _result;
   }, [
     contentTranslation,
     contentTranslationAutoInline,
@@ -2704,10 +2710,16 @@ function Status({
                     }}
                   />
                 )}
-                {(((enableTranslate || inlineTranslate) &&
-                  isTranslateble(content, emojis) &&
-                  differentLanguage) ||
-                  forceTranslate) && (
+                {((() => {
+                  const _cond = (((enableTranslate || inlineTranslate) &&
+                    isTranslateble(content, emojis) &&
+                    differentLanguage) ||
+                    forceTranslate);
+                  if (inlineTranslate || enableTranslate) {
+                    console.log('[STATUS tb]', content?.replace(/<[^>]*>/g,'').slice(0,12), '→', _cond, {en:enableTranslate,inl:inlineTranslate,tr:isTranslateble(content,emojis),dl:differentLanguage,ft:forceTranslate});
+                  }
+                  return _cond;
+                })()) && (
                   <TranslationBlock
                     forceTranslate={forceTranslate || inlineTranslate}
                     mini={!isSizeLarge && !withinContext}

@@ -140,55 +140,16 @@ function TranslationBlock({
 
   if (!onTranslate) {
     onTranslate = async ({ text, source, target, signal }) => {
-      console.log('[TB] onTranslate called, mini=' + mini + ' supportsBrowserTranslator=' + supportsBrowserTranslator + ' TRANSLANG_INSTANCES.length=' + TRANSLANG_INSTANCES.length + ' source=' + source + ' target=' + target + ' textLen=' + text.length);
       if (supportsBrowserTranslator) {
-        try {
-          const result = await throttledBrowserTranslate({
-            text,
-            source,
-            target,
-            signal,
-          });
-          if (result && !result.error) {
-            return result;
-          }
-        } catch (e) {
-          // Browser translator unavailable or failed; fall through to next option
-          console.warn('Browser translator failed:', e?.message || e);
+        const result = await throttledBrowserTranslate({
+          text,
+          source,
+          target,
+          signal,
+        });
+        if (result && !result.error) {
+          return result;
         }
-      }
-      if (TRANSLANG_INSTANCES.length === 0) {
-        // No Translang configured — fall back to MyMemory (free, no key needed)
-        // Detect CJK from text directly — don't trust the server language tag
-        // (GoToSocial and others often tag CJK posts as 'en')
-        const srcLang = (() => {
-          if (source !== 'auto') return source;
-          const cjkCount = (text.match(/[\u2E80-\u9FFF\uF900-\uFAFF\u3400-\u4DBF]/g) || []).length;
-          if (cjkCount / text.length > 0.15) {
-            if (/[\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F]/.test(text)) return 'ko';
-            if (/[\u3041-\u309F\u30A0-\u30FF]/.test(text)) return 'ja';
-            return 'zh';
-          }
-          return sourceLanguage || 'zh';
-        })();
-        const res = await fetch(
-          `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${encodeURIComponent(srcLang)}|${encodeURIComponent(target)}`,
-          { priority: 'low', referrerPolicy: 'no-referrer', signal },
-        );
-        if (!res.ok) throw new Error(res.statusText);
-        const json = await res.json();
-        if (
-          json.responseStatus === 200 &&
-          json.responseData?.translatedText
-        ) {
-          console.log('[TB] MyMemory ok: srcLang=' + srcLang + ' result=' + json.responseData.translatedText.slice(0, 40));
-          return {
-            content: json.responseData.translatedText,
-            detectedSourceLanguage: srcLang,
-          };
-        }
-        console.log('[TB] MyMemory failed: status=' + json.responseStatus + ' details=' + json.responseDetails);
-        throw new Error(json.responseDetails || 'MyMemory translation failed');
       }
       return mini
         ? await throttledTranslangTranslate({ signal, text, source, target })
@@ -252,7 +213,6 @@ function TranslationBlock({
   }, []);
 
   if (mini) {
-    console.log('[TB mini] translatedContent=' + !!translatedContent + ' detectedLang=' + detectedLang + ' targetLangText=' + targetLangText + ' sameText=' + (translatedContent && translatedContent.trim() === text.trim()));
     if (
       !!translatedContent &&
       translatedContent.trim() !== text.trim() &&
@@ -375,4 +335,4 @@ function TranslationBlock({
   );
 }
 
-export default TranslationBlock;
+export default TRANSLANG_INSTANCES?.length ? TranslationBlock : () => null;
