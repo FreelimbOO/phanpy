@@ -725,25 +725,21 @@ function Status({
     snapStates.settings;
   if (!contentTranslation) enableTranslate = false;
   const inlineTranslate = useMemo(() => {
-    const _result = (() => {
-      if (
-        !contentTranslation ||
-        !contentTranslationAutoInline ||
-        readOnly ||
-        (withinContext && !isSizeLarge) ||
-        previewMode ||
-        spoilerText ||
-        sensitive ||
-        poll ||
-        card /*||
-        mediaAttachments?.length*/
-      ) {
-        return false;
-      }
-      return contentLength > 0 && contentLength <= INLINE_TRANSLATE_LIMIT;
-    })();
-    (window.__pd = window.__pd || []).push({k:content?.replace(/<[^>]*>/g,'').slice(0,12),inl:_result,ct:contentTranslation,cai:contentTranslationAutoInline,ro:readOnly,wc:withinContext,pm:previewMode,sp:!!spoilerText,se:sensitive,poll:!!poll,card:!!card,clen:contentLength});
-    return _result;
+    if (
+      !contentTranslation ||
+      !contentTranslationAutoInline ||
+      readOnly ||
+      (withinContext && !isSizeLarge) ||
+      previewMode ||
+      spoilerText ||
+      sensitive ||
+      poll ||
+      card /*||
+      mediaAttachments?.length*/
+    ) {
+      return false;
+    }
+    return contentLength > 0 && contentLength <= INLINE_TRANSLATE_LIMIT;
   }, [
     contentTranslation,
     contentTranslationAutoInline,
@@ -2708,16 +2704,10 @@ function Status({
                     }}
                   />
                 )}
-                {((() => {
-                  const _cond = (((enableTranslate || inlineTranslate) &&
-                    isTranslateble(content, emojis) &&
-                    differentLanguage) ||
-                    forceTranslate);
-                  if (inlineTranslate || enableTranslate) {
-                    (window.__pd2 = window.__pd2 || []).push({k:content?.replace(/<[^>]*>/g,'').slice(0,12),cond:_cond,en:enableTranslate,inl:inlineTranslate,tr:isTranslateble(content,emojis),dl:differentLanguage,ft:forceTranslate});
-                  }
-                  return _cond;
-                })()) && (
+                {(((enableTranslate || inlineTranslate) &&
+                  isTranslateble(content, emojis) &&
+                  differentLanguage) ||
+                  forceTranslate) && (
                   <TranslationBlock
                     forceTranslate={forceTranslate || inlineTranslate}
                     mini={!isSizeLarge && !withinContext}

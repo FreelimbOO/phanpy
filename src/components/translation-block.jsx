@@ -38,7 +38,6 @@ const TRANSLATED_MAX_AGE = 1000 * 60 * 60; // 1 hour
 let currentTranslangInstance = 0;
 
 function _translangTranslate(text, source, target) {
-  console.log('TRANSLATE', text, source, target);
   const fetchCall = () => {
     let instance = TRANSLANG_INSTANCES[currentTranslangInstance];
     const tooLong = text.length > 2000;
@@ -89,10 +88,7 @@ function _translangTranslate(text, source, target) {
     onFailedAttempt: (e) => {
       currentTranslangInstance =
         (currentTranslangInstance + 1) % TRANSLANG_INSTANCES.length;
-      console.log(
-        'Retrying translation with another instance',
-        currentTranslangInstance,
-      );
+      // Retry with next instance
     },
   });
 }
@@ -140,7 +136,6 @@ function TranslationBlock({
 
   if (!onTranslate) {
     onTranslate = async ({ text, source, target, signal }) => {
-      console.log('[TB] onTranslate called, mini=' + mini + ' supportsBrowserTranslator=' + supportsBrowserTranslator + ' TRANSLANG_INSTANCES.length=' + TRANSLANG_INSTANCES.length + ' source=' + source + ' target=' + target + ' textLen=' + text.length);
       if (supportsBrowserTranslator) {
         try {
           const result = await throttledBrowserTranslate({
@@ -154,7 +149,7 @@ function TranslationBlock({
           }
         } catch (e) {
           // Browser translator unavailable or failed; fall through to next option
-          console.warn('Browser translator failed:', e?.message || e);
+          // Browser translator unavailable or failed; fall through to next option
         }
       }
       if (TRANSLANG_INSTANCES.length === 0) {
@@ -181,13 +176,11 @@ function TranslationBlock({
           json.responseStatus === 200 &&
           json.responseData?.translatedText
         ) {
-          console.log('[TB] MyMemory ok: srcLang=' + srcLang + ' result=' + json.responseData.translatedText.slice(0, 40));
           return {
             content: json.responseData.translatedText,
             detectedSourceLanguage: srcLang,
           };
         }
-        console.log('[TB] MyMemory failed: status=' + json.responseStatus + ' details=' + json.responseDetails);
         throw new Error(json.responseDetails || 'MyMemory translation failed');
       }
       return mini
@@ -206,7 +199,6 @@ function TranslationBlock({
           target: targetLang,
           signal: abortControllerRef.current?.signal,
         });
-      (window.__pdTBt = window.__pdTBt || []).push({k:text?.slice(0,12),content:content?.slice(0,20),dsl:detectedSourceLanguage,err:error,mini});
       if (content) {
         if (detectedSourceLanguage) {
           const detectedLangText = localeCode2Text(detectedSourceLanguage);
@@ -252,12 +244,18 @@ function TranslationBlock({
     };
   }, []);
 
-  (window.__pdTB = window.__pdTB || []).push({k:text?.slice(0,12),mini,tc:translatedContent?.slice(0,20),dl:detectedLang,tlt:targetLangText,ft:forceTranslate,ui:uiState});
   if (mini) {
+    // Show mini translation if:
+    // 1. There is translated content
+    // 2. The translation is different from the original text
+    // Note: we intentionally removed the `detectedLang !== targetLangText` check
+    // because the Chrome AI Language Detector can misidentify short CJK posts as 'en',
+    // causing the block to be suppressed even though the translation is valid.
+    // The `translatedContent.trim() !== text.trim()` check is sufficient to avoid
+    // showing no-op "translations" where the output matches the input.
     if (
       !!translatedContent &&
-      translatedContent.trim() !== text.trim() &&
-      detectedLang !== targetLangText
+      translatedContent.trim() !== text.trim()
     ) {
       return (
         <LazyShazam>
