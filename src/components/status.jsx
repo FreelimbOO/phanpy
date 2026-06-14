@@ -742,9 +742,7 @@ function Status({
       }
       return contentLength > 0 && contentLength <= INLINE_TRANSLATE_LIMIT;
     })();
-    if (contentTranslationAutoInline) {
-      console.log('[STATUS inl]', content?.replace(/<[^>]*>/g,'').slice(0,12), '→', _result, {ct:contentTranslation,cai:contentTranslationAutoInline,ro:readOnly,wc:withinContext,pm:previewMode,sp:!!spoilerText,se:sensitive,poll:!!poll,card:!!card,clen:contentLength});
-    }
+    console.log('[STATUS inl]', content?.replace(/<[^>]*>/g,'').slice(0,12), '→', _result, {ct:contentTranslation,cai:contentTranslationAutoInline,ro:readOnly,wc:withinContext,pm:previewMode,sp:!!spoilerText,se:sensitive,poll:!!poll,card:!!card,clen:contentLength});
     return _result;
   }, [
     contentTranslation,
