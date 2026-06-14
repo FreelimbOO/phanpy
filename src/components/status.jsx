@@ -742,7 +742,7 @@ function Status({
       }
       return contentLength > 0 && contentLength <= INLINE_TRANSLATE_LIMIT;
     })();
-    console.log('[STATUS inl]', content?.replace(/<[^>]*>/g,'').slice(0,12), '→', _result, {ct:contentTranslation,cai:contentTranslationAutoInline,ro:readOnly,wc:withinContext,pm:previewMode,sp:!!spoilerText,se:sensitive,poll:!!poll,card:!!card,clen:contentLength});
+    (window.__pd = window.__pd || []).push({k:content?.replace(/<[^>]*>/g,'').slice(0,12),inl:_result,ct:contentTranslation,cai:contentTranslationAutoInline,ro:readOnly,wc:withinContext,pm:previewMode,sp:!!spoilerText,se:sensitive,poll:!!poll,card:!!card,clen:contentLength});
     return _result;
   }, [
     contentTranslation,
@@ -2714,7 +2714,7 @@ function Status({
                     differentLanguage) ||
                     forceTranslate);
                   if (inlineTranslate || enableTranslate) {
-                    console.log('[STATUS tb]', content?.replace(/<[^>]*>/g,'').slice(0,12), '→', _cond, {en:enableTranslate,inl:inlineTranslate,tr:isTranslateble(content,emojis),dl:differentLanguage,ft:forceTranslate});
+                    (window.__pd2 = window.__pd2 || []).push({k:content?.replace(/<[^>]*>/g,'').slice(0,12),cond:_cond,en:enableTranslate,inl:inlineTranslate,tr:isTranslateble(content,emojis),dl:differentLanguage,ft:forceTranslate});
                   }
                   return _cond;
                 })()) && (
