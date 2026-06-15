@@ -206,7 +206,7 @@ export default defineConfig({
         );
         if (cssFiles.length > 0) {
           const links = cssFiles
-            .map((file) => `  Link: <${file}>; rel=preload; as=style`)
+            .map((file) => `  Link: </${file}>; rel=preload; as=style; crossorigin=anonymous`)
             .join('\n');
           fs.writeFileSync(resolve(__dirname, 'dist/_headers'), `/\n${links}`);
         }
@@ -288,6 +288,10 @@ export default defineConfig({
         html = html.replace(
           /<link[^>]*rel=["']stylesheet["'][^>]*>/g,
           (match) => {
+            // Add crossorigin="anonymous" so credentials mode matches the preload Link header
+            if (!match.includes('crossorigin')) {
+              match = match.replace(/\s*\/?>$/, ' crossorigin="anonymous">');
+            }
             stylesheets.push(match);
             return '';
           },
