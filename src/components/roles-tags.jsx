@@ -1,4 +1,3 @@
-import getDomain from '../utils/get-domain';
 import { getCurrentAccountID } from '../utils/store-utils';
 
 function RolesTags({ roles, accountId, accountUrl, hideSelf = false }) {
@@ -10,19 +9,11 @@ function RolesTags({ roles, accountId, accountUrl, hideSelf = false }) {
   }
   if (hideSelf && isSelf) return null;
 
-  const parsedAccountInstance = getDomain(accountUrl);
-
   return roles?.map((role) => (
     <>
       {' '}
       <span class="tag collapsed tag-role">
         {role.name}
-        {!!parsedAccountInstance && (
-          <>
-            {' '}
-            <span class="more-insignificant">{parsedAccountInstance}</span>
-          </>
-        )}
       </span>
     </>
   ));
