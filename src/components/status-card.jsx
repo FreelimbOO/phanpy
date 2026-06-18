@@ -317,12 +317,16 @@ export function YouTubeCard({ videoId }) {
   }, [videoId]);
 
   return (
-    <div class="card video youtube-card">
+    <div
+      class="card video youtube-card"
+      onClick={(e) => e.stopPropagation()}
+    >
       <lite-youtube
         videoid={videoId}
         videotitle={title}
         nocookie
         autoPause
+        style="pointer-events: auto"
       ></lite-youtube>
     </div>
   );
