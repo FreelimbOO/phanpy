@@ -295,3 +295,35 @@ function StatusCard({ card, selfReferential, selfAuthor, instance }) {
 }
 
 export default StatusCard;
+
+// YouTube video ID regex — matches watch?v=, youtu.be/, and /shorts/ URLs
+const YT_REGEX =
+  /href="https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?(?:[^"]*&)*v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/i;
+
+export function extractYouTubeVideoId(html) {
+  return html?.match(YT_REGEX)?.[1] || null;
+}
+
+export function YouTubeCard({ videoId }) {
+  const [title, setTitle] = useState('');
+
+  useEffect(() => {
+    fetch(
+      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
+    )
+      .then((r) => r.json())
+      .then((data) => setTitle(data.title))
+      .catch(() => {});
+  }, [videoId]);
+
+  return (
+    <div class="card video youtube-card">
+      <lite-youtube
+        videoid={videoId}
+        videotitle={title}
+        nocookie
+        autoPause
+      ></lite-youtube>
+    </div>
+  );
+}

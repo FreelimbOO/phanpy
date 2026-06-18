@@ -80,7 +80,10 @@ import QuoteSettingsSheet from './quote-settings-sheet';
 import QuotesModal from './quotes-modal';
 import RelativeTime from './relative-time';
 import StatusButton from './status-button';
-import StatusCard from './status-card';
+import StatusCard, {
+  YouTubeCard,
+  extractYouTubeVideoId,
+} from './status-card';
 import StatusCompact from './status-compact';
 import StatusTags from './status-tags';
 import SubMenu2 from './submenu2';
@@ -2142,6 +2145,12 @@ function Status({
     return isSameURL(c.url, card?.url);
   });
 
+  const youtubeVideoId = useMemo(() => {
+    if (card || !content) return null;
+    if (!/youtube\.com|youtu\.be/i.test(content)) return null;
+    return extractYouTubeVideoId(content);
+  }, [card, content]);
+
   return (
     <StatusParent>
       {showReplyParent && !!(inReplyToId && inReplyToAccountId) && (
@@ -2869,6 +2878,8 @@ function Status({
                           : undefined
                       }
                     />
+                  ) : youtubeVideoId ? (
+                    <YouTubeCard videoId={youtubeVideoId} />
                   ) : null)}
                 {size !== 's' && <StatusTags tags={tags} content={content} />}
               </>
