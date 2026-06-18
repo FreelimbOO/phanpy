@@ -54,7 +54,7 @@ a[href^='http'][rel*='nofollow']:visited:not(:has(div)) {
   overflow: auto;
   overflow-x: hidden;
   transition: opacity 0.1s ease-in-out;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: contain; /* allow overscroll-y (pull-to-refresh) on mobile */
   scroll-behavior: smooth;
   background-color: var(--bg-color);
   flex-grow: 1;
@@ -118,7 +118,7 @@ a[href^='http'][rel*='nofollow']:visited:not(:has(div)) {
   overflow-x: hidden;
   height: 100vh;
   height: 100dvh;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: contain; /* allow overscroll-y (pull-to-refresh) on mobile */
 }
 @media (hover: hover) {
   .deck.contained {
