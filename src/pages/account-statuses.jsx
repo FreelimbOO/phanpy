@@ -15,7 +15,6 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { useSnapshot } from 'valtio';
 
 import AccountInfo from '../components/account-info';
-import AccountInfoMini from '../components/account-info-mini';
 import EmojiText from '../components/emoji-text';
 import Icon from '../components/icon';
 import Link from '../components/link';
@@ -379,18 +378,14 @@ function AccountStatuses({ columnMode, ...props }) {
 
     return (
       <>
-        {columnMode ? (
-          <AccountInfoMini account={account} instance={instance} />
-        ) : (
-          <AccountInfo
-            instance={instance}
-            account={cachedAccount || id}
-            fetchAccount={fetchAccount}
-            authenticated={authenticated}
-            standalone
-            showEndorsements
-          />
-        )}
+        <AccountInfo
+          instance={instance}
+          account={cachedAccount || id}
+          fetchAccount={fetchAccount}
+          authenticated={authenticated}
+          standalone
+          showEndorsements
+        />
         {!mediaFirst && (
           <div
             class="filter-bar"
