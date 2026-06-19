@@ -24,17 +24,15 @@ function FilePickerInput({
 
         let mediaFiles;
         try {
-          mediaFiles = await Promise.all(
-            Array.from(files).map(async (file) => ({
-              fileData: await file.arrayBuffer(),
-              fileName: file.name,
-              type: file.type,
-              size: file.size,
-              url: URL.createObjectURL(file),
-              id: null, // indicate uploaded state
-              description: null,
-            })),
-          );
+          mediaFiles = Array.from(files).map((file) => ({
+            file, // keep the File object; avoids eager full read from slow storage (e.g. microSD)
+            fileName: file.name,
+            type: file.type,
+            size: file.size,
+            url: URL.createObjectURL(file),
+            id: null, // indicate uploaded state
+            description: null,
+          }));
         } catch (err) {
           console.error('Failed to read file(s):', err);
           return;

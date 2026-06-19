@@ -299,17 +299,15 @@ function Compose({
         }
         allowedFiles = allowedFiles.slice(0, max);
       }
-      return Promise.all(
-        allowedFiles.map(async (file) => ({
-          fileData: await file.arrayBuffer(),
-          fileName: file.name,
-          type: file.type,
-          size: file.size,
-          url: URL.createObjectURL(file),
-          id: null,
-          description: null,
-        })),
-      );
+      return allowedFiles.map((file) => ({
+        file, // keep the File object; avoids eager full read from slow storage (e.g. microSD)
+        fileName: file.name,
+        type: file.type,
+        size: file.size,
+        url: URL.createObjectURL(file),
+        id: null,
+        description: null,
+      }));
     }
     return null;
   };
