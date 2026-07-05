@@ -2069,17 +2069,16 @@ function Compose({
                   contentType === 'text/markdown' ? 'highlight' : ''
                 }`}
                 title={
-                  contentType === 'text/markdown'
-                    ? t`Markdown`
-                    : t`Plain text`
+                  contentType === 'text/markdown' ? 'Markdown' : 'Plain text'
                 }
               >
+                {/* Not run through i18n (Trans/t) on purpose: new catalog
+                    entries need `messages:extract` + `messages:compile` to
+                    render, and that step doesn't run as part of `vite build`
+                    on Cloudflare. Plain strings avoid shipping raw message
+                    IDs until this is properly localized. */}
                 <span class="icon-text">
-                  {contentType === 'text/markdown' ? (
-                    <Trans>Markdown</Trans>
-                  ) : (
-                    <Trans>Plain text</Trans>
-                  )}
+                  {contentType === 'text/markdown' ? 'Markdown' : 'Plain text'}
                 </span>
                 <select
                   name="contentType"
@@ -2092,12 +2091,8 @@ function Compose({
                   disabled={uiState === 'loading'}
                   dir="auto"
                 >
-                  <option value="text/plain">
-                    <Trans>Plain text</Trans>
-                  </option>
-                  <option value="text/markdown">
-                    <Trans>Markdown</Trans>
-                  </option>
+                  <option value="text/plain">Plain text</option>
+                  <option value="text/markdown">Markdown</option>
                 </select>
               </label>
             )}{' '}
