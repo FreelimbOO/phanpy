@@ -228,6 +228,9 @@ function Compose({
   const [quoteSuggestion, setQuoteSuggestion] = useState(null);
   const [localQuoteStatus, setLocalQuoteStatus] = useState(quoteStatus);
   const [quoteCleared, setQuoteCleared] = useState(false);
+  const [contentType, setContentType] = useState(
+    store.session.get('currentStatusContentType') || 'text/plain',
+  );
 
   const prefs = getPreferences();
 
@@ -531,6 +534,11 @@ function Compose({
           focusTextarea();
           spoilerTextRef.current.value = spoilerText;
           setVisibility(visibility);
+          setContentType(
+            statusSource.contentType ||
+              statusSource.content_type ||
+              'text/plain',
+          );
           setLanguage(
             language ||
               prefs['posting:default:language']?.toLowerCase() ||
@@ -1407,6 +1415,9 @@ function Compose({
                     (attachment) => attachment.id,
                   ),
                 };
+                if (supports('@gotosocial')) {
+                  params.content_type = contentType;
+                }
                 if (editStatus) {
                   if (supportsNativeQuote()) {
                     params.quote_approval_policy = quoteApprovalPolicy;
@@ -2052,6 +2063,44 @@ function Compose({
                 </option>
               </select>
             </label>{' '}
+            {supports('@gotosocial') && (
+              <label
+                class={`toolbar-button ${
+                  contentType === 'text/markdown' ? 'highlight' : ''
+                }`}
+                title={
+                  contentType === 'text/markdown'
+                    ? t`Markdown`
+                    : t`Plain text`
+                }
+              >
+                <span class="icon-text">
+                  {contentType === 'text/markdown' ? (
+                    <Trans>Markdown</Trans>
+                  ) : (
+                    <Trans>Plain text</Trans>
+                  )}
+                </span>
+                <select
+                  name="contentType"
+                  value={contentType}
+                  onChange={(e) => {
+                    const { value } = e.target;
+                    setContentType(value);
+                    store.session.set('currentStatusContentType', value);
+                  }}
+                  disabled={uiState === 'loading'}
+                  dir="auto"
+                >
+                  <option value="text/plain">
+                    <Trans>Plain text</Trans>
+                  </option>
+                  <option value="text/markdown">
+                    <Trans>Markdown</Trans>
+                  </option>
+                </select>
+              </label>
+            )}{' '}
             <label
               class={`toolbar-button ${
                 highlightLanguageField ? 'highlight' : ''
