@@ -484,7 +484,7 @@ function Status({
     inReplyToAccountId,
     content,
     mentions,
-    mediaAttachments = [],
+    mediaAttachments: rawMediaAttachments = [],
     reblog,
     quote,
     uri,
@@ -500,6 +500,14 @@ function Status({
     // Non-Mastodon
     emojiReactions,
   } = status;
+
+  // Attachments marked `inline` (a GoToSocial/Freelimbo fork extension)
+  // were fetched from an inline Markdown image reference (`![alt](url)`)
+  // in this status's own content, and are already shown there -- skip
+  // them here so they don't also duplicate in the gallery below the post.
+  // Standard Mastodon-API instances never set this field, so this is a
+  // no-op (empty filter) anywhere else.
+  const mediaAttachments = rawMediaAttachments.filter((media) => !media.inline);
 
   const [languageAutoDetected, setLanguageAutoDetected] = useState(null);
   useEffect(() => {

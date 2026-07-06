@@ -232,6 +232,16 @@ function Compose({
     store.session.get('currentStatusContentType') || 'text/plain',
   );
 
+  // Files picked via the "Insert as inline image" action (Markdown mode
+  // only). Each entry is a placeholder token + its File object; the
+  // token gets inserted into the textarea immediately as
+  // ![](inline:TOKEN), and only actually uploaded at submit time, when
+  // the placeholder is swapped for the real uploaded URL. These files
+  // are deliberately never added to `mediaAttachments`/media_ids -- they
+  // become inline-only Markdown image references, not status attachments.
+  const [inlineImageUploads, setInlineImageUploads] = useState([]);
+  const inlineImageTokenCounter = useRef(0);
+
   const prefs = getPreferences();
 
   const currentQuoteStatus = quoteCleared
@@ -1397,6 +1407,43 @@ function Compose({
                   console.log({ results, mediaAttachments });
                 }
 
+                if (inlineImageUploads.length > 0) {
+                  // Upload each pending "insert as inline image" file,
+                  // then swap its ![](inline:TOKEN) placeholder in the
+                  // status text for the real uploaded URL. These files
+                  // are never added to media_ids -- GtS's own inline
+                  // Markdown image fetch/cache picks up the resolved
+                  // URL from the status text itself once posted.
+                  const inlineResults = await Promise.allSettled(
+                    inlineImageUploads.map(({ token, file }) =>
+                      masto.v2.media
+                        .create({ file })
+                        .then((res) => ({ token, url: res.url })),
+                    ),
+                  );
+
+                  const failed = inlineResults.filter(
+                    (result) => result.status === 'rejected' || !result.value?.url,
+                  );
+                  if (failed.length > 0) {
+                    states.composerState.publishing = false;
+                    states.composerState.publishingError = true;
+                    setUIState('error');
+                    failed.forEach((result) => {
+                      if (result.status === 'rejected') {
+                        console.error(result);
+                      }
+                    });
+                    alert(t`Failed to upload one or more inline images.`);
+                    return;
+                  }
+
+                  for (const result of inlineResults) {
+                    const { token, url } = result.value;
+                    status = status.replaceAll(`inline:${token}`, url);
+                  }
+                }
+
                 /* NOTE:
                 Using snakecase here because masto.js's `isObject` returns false for `params`, ONLY happens when opening in pop-out window. This is maybe due to `window.masto` variable being passed from the parent window. The check that failed is `x.constructor === Object`, so maybe the `Object` in new window is different than parent window's?
                 Code: https://github.com/neet/masto.js/blob/dd0d649067b6a2b6e60fbb0a96597c373a255b00/src/serializers/is-object.ts#L2
@@ -2094,6 +2141,33 @@ function Compose({
                   <option value="text/plain">Plain text</option>
                   <option value="text/markdown">Markdown</option>
                 </select>
+              </label>
+            )}{' '}
+            {supports('@gotosocial') && contentType === 'text/markdown' && (
+              // Not i18n'd, same reasoning as the toggle above.
+              <label class="toolbar-button" title="Insert as inline image">
+                <input
+                  type="file"
+                  hidden
+                  accept={supportedImagesVideosTypes
+                    ?.filter((mimeType) => /^image/i.test(mimeType))
+                    .join(',')}
+                  disabled={uiState === 'loading'}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const token = `${Date.now()}-${inlineImageTokenCounter.current++}`;
+                    setInlineImageUploads((uploads) =>
+                      uploads.concat({ token, file }),
+                    );
+                    insertTextAtCursor({
+                      targetElement: textareaRef.current,
+                      text: `![](inline:${token})`,
+                    });
+                    e.target.value = '';
+                  }}
+                />
+                <Icon icon="media" alt="Insert as inline image" />
               </label>
             )}{' '}
             <label
