@@ -561,7 +561,17 @@ function Compose({
           }
           setSensitive(sensitive);
           if (composablePoll) setPoll(composablePoll);
-          setMediaAttachments(mediaAttachments);
+          // Exclude attachments marked `inline: true` (GtS/Freelimbo fork
+          // extension) -- these were fetched from an inline Markdown image
+          // reference in the status text, not explicitly attached. They
+          // must stay out of the editable media_ids state, otherwise
+          // saving the edit re-submits their IDs as explicit attachments
+          // *in addition to* GtS re-detecting them from the Markdown text
+          // itself, producing duplicate entries in the status's own
+          // AttachmentIDs (and so duplicate thumbnails in the Media tab).
+          setMediaAttachments(
+            mediaAttachments?.filter((media) => !media.inline) || [],
+          );
           setUIState('default');
         } catch (e) {
           console.error(e);
