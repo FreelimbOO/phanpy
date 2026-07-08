@@ -10,7 +10,8 @@ const HTTP_REGEX = /^http/i;
 const PostContent =
   /*memo(*/
   ({ post, instance, previewMode }) => {
-    const { content, emojis, language, mentions, url } = post;
+    const { content, emojis, language, mentions, url, mediaAttachments, id } =
+      post;
     const snapStates = useSnapshot(states);
     const sKey = statusKey(post.id, instance);
     const quotes = snapStates.statusQuotes[sKey];
@@ -53,6 +54,8 @@ const PostContent =
           instance,
           previewMode,
           statusURL: url,
+          mediaAttachments,
+          statusID: id,
         })}
         // dangerouslySetInnerHTML={{
         //   __html: enhanceContent(content, {

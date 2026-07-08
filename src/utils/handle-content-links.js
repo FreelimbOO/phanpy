@@ -3,7 +3,14 @@ import states from './states';
 const supportsHover = window.matchMedia('(hover: hover)').matches;
 
 function handleContentLinks(opts) {
-  const { mentions = [], instance, previewMode, statusURL } = opts || {};
+  const {
+    mentions = [],
+    instance,
+    previewMode,
+    statusURL,
+    mediaAttachments = [],
+    statusID,
+  } = opts || {};
   return (e) => {
     // If cmd/ctrl/shift/alt key is pressed or middle-click, let the browser handle it
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.which === 2) {
@@ -11,6 +18,33 @@ function handleContentLinks(opts) {
     }
 
     let { target } = e;
+
+    // Inline Markdown images (Freelimbo-fork extension, `![alt](url)`
+    // syntax) are rendered as plain <img class="inline-attachment">
+    // tags directly in status content -- unlike gallery attachments,
+    // they have no click-to-zoom wired up by default. Open the same
+    // media lightbox gallery attachments use, matching against the
+    // status's own media_attachments by URL so we get the real
+    // type/blurhash/description if available, falling back to a
+    // minimal synthetic entry (same as the custom-emoji case below)
+    // if no match is found.
+    if (target.matches?.('img.inline-attachment')) {
+      e.preventDefault();
+      e.stopPropagation();
+      const matched = mediaAttachments.find((m) => m.url === target.src);
+      states.showMediaModal = {
+        mediaAttachments: [
+          matched || {
+            type: 'image',
+            url: target.src,
+            description: target.title || target.alt,
+          },
+        ],
+        instance,
+        statusID,
+      };
+      return;
+    }
 
     // Experiment opening custom emoji in a modal
     // TODO: Rename this function because it's not just for links
