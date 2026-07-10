@@ -985,10 +985,14 @@ function AccountInfo({
                       </div>
                     )}
                     {!!aiQuota && aiQuota.percent != null && (
+                      // Plain string, deliberately not <Trans> -- this is a
+                      // Freelimbo-fork-only addition, not part of upstream
+                      // Phanpy's translated UI, so it shouldn't depend on
+                      // the lingui message catalog (which isn't even
+                      // present in this fork's local checkout -- translations
+                      // are pulled from an external service at build time).
                       <div class="insignificant">
-                        <Trans>
-                          {Math.round(aiQuota.percent)}% AI quota used
-                        </Trans>
+                        {Math.round(aiQuota.percent)}% AI quota used
                       </div>
                     )}
                   </div>
