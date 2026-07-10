@@ -206,6 +206,32 @@ function AccountInfo({
     roles,
     hideCollections,
   } = info || {};
+
+  // Freelimbo fork addition: AI (@ai) quota usage, for local accounts only.
+  // Fetched from a small endpoint mention_reply_webhook.py exposes via
+  // nginx (see gotosocial's nginx.conf) -- not part of the standard
+  // Mastodon API, so this is entirely a no-op/silent-fail on any other
+  // instance or account.
+  const [aiQuota, setAiQuota] = useState(null);
+  useEffect(() => {
+    if (!username || acct !== username) {
+      // No username loaded yet, or a remote account (acct has a @domain
+      // suffix) -- the quota system only tracks accounts local to this
+      // instance.
+      setAiQuota(null);
+      return;
+    }
+    const controller = new AbortController();
+    fetch(
+      `https://social.freelimbo.com/quota-status?username=${encodeURIComponent(username)}`,
+      { signal: controller.signal },
+    )
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setAiQuota)
+      .catch(() => {}); // nice-to-have, not core functionality -- fail silently
+    return () => controller.abort();
+  }, [username, acct]);
+
   let headerIsAvatar = false;
   let { header, headerStatic } = info || {};
   if (!header || /missing\.png$/.test(header)) {
@@ -955,6 +981,13 @@ function AccountInfo({
                               hideTime: true,
                             })}
                           </time>
+                        </Trans>
+                      </div>
+                    )}
+                    {!!aiQuota && aiQuota.percent != null && (
+                      <div class="insignificant">
+                        <Trans>
+                          {Math.round(aiQuota.percent)}% AI quota used
                         </Trans>
                       </div>
                     )}
