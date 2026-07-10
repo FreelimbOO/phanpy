@@ -386,7 +386,18 @@ function _threadifyStatus(status, propInstance) {
 export const threadifyStatus = rateLimit(_threadifyStatus, 100);
 
 const fauxDiv = document.createElement('div');
+// Freelimbo fork addition: skip link-unfurling entirely for newsbot's posts.
+// Its daily RSS roundups are link-heavy (~10 plain article links per post),
+// and every single one is an ordinary external news article -- never a
+// Fediverse post -- so probing each one via resolve-search just wastes
+// requests and spams gotosocial's logs for something that will never
+// actually resolve to anything. Other accounts' posts (where a plain link
+// might genuinely be a quote-link to another toot) are unaffected.
+const UNFURL_SKIP_USERNAMES = new Set(['newsbot']);
+
 export function unfurlStatus(status, instance) {
+  if (UNFURL_SKIP_USERNAMES.has(status?.account?.username)) return;
+
   const { instance: currentInstance } = api();
   const content = status?.content;
   const hasLink = /<a/i.test(content);
