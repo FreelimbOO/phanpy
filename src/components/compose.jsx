@@ -2012,6 +2012,9 @@ function Compose({
                           supportedMimeTypes={supportedImagesVideosTypes}
                           disabled={mediaButtonDisabled}
                           setMediaAttachments={setMediaAttachments}
+                          onVideoPick={
+                            supports('@gotosocial') ? pickInlineVideo : undefined
+                          }
                         />
                       </label>
                       <Icon icon="camera" /> <span>{_(ADD_LABELS.camera)}</span>
@@ -2098,6 +2101,9 @@ function Compose({
                       mediaAttachments={mediaAttachments}
                       disabled={mediaButtonDisabled}
                       setMediaAttachments={setMediaAttachments}
+                      onVideoPick={
+                        supports('@gotosocial') ? pickInlineVideo : undefined
+                      }
                     />
                     <Icon icon="camera" alt={_(ADD_LABELS.camera)} />
                   </label>
