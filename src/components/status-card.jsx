@@ -395,9 +395,21 @@ export function InlineYouTubeCards({ contentRef, videoIds }) {
       // is itself derived from this same content -- but content could
       // theoretically change between the two in a way that drops a
       // link, so don't throw if a match isn't found.
-      const anchor = link.closest('p, li, blockquote') || link;
+      //
+      // Insert directly after the link itself, NOT its closest block
+      // ancestor (p/li/blockquote) -- a Markdown paragraph with single
+      // (not blank-line-separated) line breaks between "lines" renders
+      // as ONE <p> with soft breaks in between, not one <p> per line, so
+      // the closest paragraph can contain a lot more than just this
+      // link (any text/images that came after it in the same block too).
+      // Plain-text posts happened to look right with the old
+      // closest-block approach only because GtS's plain-text formatter
+      // wraps each line in its own <p>, which isn't true for Markdown.
+      // A block-level <div> card inserted directly after an inline <a>
+      // still naturally forces a line break before/after itself, so
+      // this reads fine either way.
       const card = createYouTubeCardElement(videoId);
-      anchor.insertAdjacentElement('afterend', card);
+      link.insertAdjacentElement('afterend', card);
       insertedRef.current.push(card);
     }
 
