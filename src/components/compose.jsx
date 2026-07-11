@@ -158,6 +158,87 @@ function fixLanguage(language) {
   return null;
 }
 
+// Uploads each pending "insert as inline video" file to the instance's
+// configured YouTube channel (POST /api/v1/media/youtube, a
+// freelimbo-specific extension, not part of the Mastodon API), then edits
+// the already-published/already-updated post to swap each
+// [uploading-video:TOKEN] placeholder for the real watch URL -- or, for
+// any upload that failed, a plain-text failure note instead.
+//
+// Deliberately called WITHOUT awaiting it from the compose submit
+// handler, and deliberately NOT tracked server-side: the post goes out
+// immediately with the placeholder(s) still literally in the text
+// (briefly visible to viewers, in exchange for not freezing the
+// composer for however long a video upload takes -- which can be a
+// while, relayed through the instance's own upstream bandwidth to
+// YouTube). If this browser tab/PWA closes before this resolves, the
+// placeholder(s) are left stuck in the live post with nothing to retry
+// them -- a real tradeoff, chosen over the alternative (a server-side
+// background job) specifically to avoid hooking into GtS's
+// status-creation internals for this.
+async function finishVideoUploads({
+  statusId,
+  originalText,
+  baseParams,
+  inlineVideoUploads,
+  masto,
+  instance,
+  client,
+}) {
+  const results = await Promise.allSettled(
+    inlineVideoUploads.map(({ token, file }) => {
+      const form = new FormData();
+      form.append('file', file);
+      return fetch(`https://${instance}/api/v1/media/youtube`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${client.accessToken}`,
+        },
+        body: form,
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const body = await res.json().catch(() => null);
+            throw new Error(
+              body?.error || `YouTube upload failed (${res.status})`,
+            );
+          }
+          return res.json();
+        })
+        .then((res) => ({ token, url: res.url }));
+    }),
+  );
+
+  let text = originalText;
+  results.forEach((result, i) => {
+    const { token } = inlineVideoUploads[i];
+    if (result.status === 'fulfilled' && result.value?.url) {
+      text = text.replaceAll(`[uploading-video:${token}]`, result.value.url);
+    } else {
+      if (result.status === 'rejected') {
+        console.error(
+          'YouTube upload failed for token',
+          token,
+          result.reason,
+        );
+      }
+      text = text.replaceAll(
+        `[uploading-video:${token}]`,
+        '[video upload to YouTube failed]',
+      );
+    }
+  });
+
+  // Nothing to do if every placeholder somehow already resolved
+  // (shouldn't normally happen, but avoids a pointless empty edit).
+  if (text === originalText) return;
+
+  await masto.v1.statuses.$select(statusId).update({
+    ...baseParams,
+    status: text,
+  });
+}
+
 function Compose({
   onClose,
   replyToStatus,
@@ -211,6 +292,17 @@ function Compose({
     /^(image|video)/i.test(mimeType),
   );
 
+  // When this instance offers the GtS-specific "insert as inline video"
+  // path (routes to YouTube instead of local/S3 storage), strip video out
+  // of the *normal* attach-media picker entirely, so there's exactly one
+  // unambiguous button for each media type instead of two that both
+  // accept video but send it to very different places. On non-GtS
+  // instances, where no alternate video path exists, leave the normal
+  // picker accepting video as it always has.
+  const normalAttachMimeTypes = supports('@gotosocial')
+    ? supportedMimeTypes?.filter((mimeType) => !/^video/i.test(mimeType))
+    : supportedMimeTypes;
+
   const textareaRef = useRef();
   const spoilerTextRef = useRef();
 
@@ -243,8 +335,10 @@ function Compose({
   const inlineImageTokenCounter = useRef(0);
 
   // Same placeholder trick as inlineImageUploads above, but for video:
-  // files picked via "Insert as inline video" (Markdown mode only) get a
-  // plain-text placeholder token inserted at the cursor immediately, and
+  // files picked via "Add video" (available in both plain-text and
+  // Markdown mode -- unlike inlineImageUploads, this has no Markdown
+  // syntax dependency) get a plain-text placeholder token inserted at
+  // the cursor immediately, and
   // are only uploaded at submit time -- not to GtS's normal media
   // pipeline, but to the instance's configured YouTube channel (as an
   // unlisted video) via POST /api/v1/media/youtube, a freelimbo-specific
@@ -1470,59 +1564,27 @@ function Compose({
                   }
                 }
 
-                if (inlineVideoUploads.length > 0) {
-                  // Upload each pending "insert as inline video" file to
-                  // the instance's configured YouTube channel (unlisted),
-                  // then swap its [uploading-video:TOKEN] placeholder in
-                  // the status text for the real watch URL. This hits a
-                  // freelimbo-specific endpoint, not masto.js, since it's
-                  // not part of the Mastodon API.
-                  const inlineVideoResults = await Promise.allSettled(
-                    inlineVideoUploads.map(({ token, file }) => {
-                      const form = new FormData();
-                      form.append('file', file);
-                      return fetch(`https://${instance}/api/v1/media/youtube`, {
-                        method: 'POST',
-                        headers: {
-                          Authorization: `Bearer ${client.accessToken}`,
-                        },
-                        body: form,
-                      })
-                        .then(async (res) => {
-                          if (!res.ok) {
-                            const body = await res.json().catch(() => null);
-                            throw new Error(
-                              body?.error || `YouTube upload failed (${res.status})`,
-                            );
-                          }
-                          return res.json();
-                        })
-                        .then((res) => ({ token, url: res.url }));
-                    }),
-                  );
-
-                  const failedVideos = inlineVideoResults.filter(
-                    (result) =>
-                      result.status === 'rejected' || !result.value?.url,
-                  );
-                  if (failedVideos.length > 0) {
-                    states.composerState.publishing = false;
-                    states.composerState.publishingError = true;
-                    setUIState('error');
-                    failedVideos.forEach((result) => {
-                      if (result.status === 'rejected') {
-                        console.error(result);
-                      }
-                    });
-                    alert(t`Failed to upload one or more videos to YouTube.`);
-                    return;
-                  }
-
-                  for (const result of inlineVideoResults) {
-                    const { token, url } = result.value;
-                    status = status.replaceAll(`[uploading-video:${token}]`, url);
-                  }
-                }
+                // Deliberately NOT resolved here, unlike inlineImageUploads
+                // above. Videos can take a long time to upload (relayed
+                // through the instance's own, often slow, upstream
+                // bandwidth to YouTube) -- awaiting that before submit
+                // would freeze the composer for however long that takes,
+                // and risks nginx/proxy timeouts killing the request
+                // outright on a slow connection.
+                //
+                // Instead: the status is posted/edited immediately below
+                // with its [uploading-video:TOKEN] placeholder(s) still
+                // literally in the text (briefly visible to viewers, in
+                // exchange for not blocking), and finishVideoUploads()
+                // (defined further down) is kicked off *without* awaiting
+                // it, right after the post exists, so it can edit the
+                // post in place once each upload resolves. See that
+                // function's own comment for the tradeoff this implies:
+                // this is a deliberately simpler, client-driven design,
+                // not a server-tracked background job -- if this browser
+                // tab closes before uploads finish, the placeholder(s)
+                // are left stuck in the published post with nothing to
+                // retry them.
 
                 /* NOTE:
                 Using snakecase here because masto.js's `isObject` returns false for `params`, ONLY happens when opening in pop-out window. This is maybe due to `window.masto` variable being passed from the parent window. The check that failed is `x.constructor === Object`, so maybe the `Object` in new window is different than parent window's?
@@ -1601,6 +1663,28 @@ function Compose({
                     newStatus = await masto.v1.statuses.create(params);
                   }
                 }
+
+                if (inlineVideoUploads.length > 0) {
+                  // Fire-and-forget -- deliberately not awaited. See
+                  // finishVideoUploads's own doc comment for why, and
+                  // the tradeoff it implies.
+                  finishVideoUploads({
+                    statusId: newStatus.id,
+                    originalText: params.status,
+                    baseParams: params,
+                    inlineVideoUploads,
+                    masto,
+                    instance,
+                    client,
+                  }).catch((e) => {
+                    // finishVideoUploads already turns individual failed
+                    // uploads into an in-post failure note; this is only
+                    // a last-resort net for the edit call itself failing
+                    // (e.g. the whole PUT request erroring out).
+                    console.error('finishVideoUploads failed', e);
+                  });
+                }
+
                 states.composerState.minimized = false;
                 states.composerState.publishing = false;
                 setUIState('default');
@@ -1918,7 +2002,7 @@ function Compose({
                     <label class="compose-menu-add-media-field">
                       <FilePickerInput
                         hidden
-                        supportedMimeTypes={supportedMimeTypes}
+                        supportedMimeTypes={normalAttachMimeTypes}
                         maxMediaAttachments={maxMediaAttachments}
                         mediaAttachments={mediaAttachments}
                         disabled={mediaButtonDisabled}
@@ -1927,6 +2011,46 @@ function Compose({
                     </label>
                     <Icon icon="media" /> <span>{_(ADD_LABELS.media)}</span>
                   </MenuItem>
+                  {supports('@gotosocial') && (
+                    // Not i18n'd, same reasoning as the toggle elsewhere
+                    // in this file. Narrow/mobile-layout counterpart of
+                    // the "insert as inline video" toolbar button further
+                    // down -- same handler, same [uploading-video:TOKEN]
+                    // placeholder mechanism, just reachable from the "+"
+                    // menu instead of the wide toolbar.
+                    <MenuItem
+                      disabled={uiState === 'loading'}
+                      className="compose-menu-add-media"
+                    >
+                      <label class="compose-menu-add-media-field">
+                        <input
+                          type="file"
+                          hidden
+                          accept={supportedImagesVideosTypes
+                            ?.filter((mimeType) => /^video/i.test(mimeType))
+                            .join(',')}
+                          disabled={uiState === 'loading'}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const token = `${Date.now()}-${inlineVideoTokenCounter.current++}`;
+                            setInlineVideoUploads((uploads) =>
+                              uploads.concat({ token, file }),
+                            );
+                            insertTextAtCursor({
+                              targetElement: textareaRef.current,
+                              text: `[uploading-video:${token}]`,
+                            });
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                      {/* No dedicated "video" icon exists in ICONS.jsx --
+                      reusing "upload" the same way the toolbar button
+                      does. */}
+                      <Icon icon="upload" /> <span>Add video</span>
+                    </MenuItem>
+                  )}
                   <MenuItem
                     disabled={cwButtonDisabled}
                     onClick={onCWButtonClick}
@@ -1995,7 +2119,7 @@ function Compose({
                 )}
                 <label class="toolbar-button">
                   <FilePickerInput
-                    supportedMimeTypes={supportedMimeTypes}
+                    supportedMimeTypes={normalAttachMimeTypes}
                     maxMediaAttachments={maxMediaAttachments}
                     mediaAttachments={mediaAttachments}
                     disabled={mediaButtonDisabled}
@@ -2264,7 +2388,7 @@ function Compose({
               // (status-card.jsx) just regexes the rendered content for a
               // youtube.com/youtu.be link either way, so it works
               // identically in both content types.
-              <label class="toolbar-button" title="Insert as inline video">
+              <label class="toolbar-button" title="Add video">
                 <input
                   type="file"
                   hidden
@@ -2290,7 +2414,7 @@ function Compose({
                 mingcute set this project vendors; reusing "upload"
                 rather than inventing a new icon key that generate-icons.js
                 might not be able to resolve. */}
-                <Icon icon="upload" alt="Insert as inline video" />
+                <Icon icon="upload" alt="Add video" />
               </label>
             )}{' '}
             <label
