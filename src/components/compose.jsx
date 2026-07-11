@@ -2250,8 +2250,20 @@ function Compose({
                 <Icon icon="media" alt="Insert as inline image" />
               </label>
             )}{' '}
-            {supports('@gotosocial') && contentType === 'text/markdown' && (
+            {supports('@gotosocial') && (
               // Not i18n'd, same reasoning as the toggle above.
+              //
+              // Unlike "insert as inline image" above, this isn't
+              // restricted to Markdown mode: the image placeholder relies
+              // on Markdown's ![]() syntax to render, but the video
+              // placeholder just becomes a bare https://youtu.be/... URL,
+              // and GtS autolinks bare URLs in plain-text posts too (see
+              // internal/text/plain.go's FromPlain, which still runs
+              // goldmark underneath for link/mention/hashtag parsing even
+              // in "plain text" mode). Phanpy's own YouTubeCard detection
+              // (status-card.jsx) just regexes the rendered content for a
+              // youtube.com/youtu.be link either way, so it works
+              // identically in both content types.
               <label class="toolbar-button" title="Insert as inline video">
                 <input
                   type="file"
