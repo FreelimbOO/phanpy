@@ -1,7 +1,7 @@
 import '@justinribeiro/lite-youtube';
 
 import { decodeBlurHash, getBlurHashAverageColor } from 'fast-blurhash';
-import { useCallback, useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { useSnapshot } from 'valtio';
 
 import getDomain from '../utils/get-domain';
@@ -346,4 +346,92 @@ export function YouTubeCard({ videoId }) {
       ></lite-youtube>
     </div>
   );
+}
+
+// Matches a YouTube video ID directly out of an anchor's resolved
+// `.href` (an absolute URL string, unlike YT_REGEX above which expects
+// a raw `href="..."` HTML attribute fragment).
+const YT_HREF_ID_REGEX =
+  /(?:youtube\.com\/watch\?(?:[^&]*&)*v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/i;
+
+// Positions each YouTube card right after the paragraph (or list item /
+// blockquote) containing its link, instead of status.jsx's other option
+// of just appending every card after the whole post -- which reads fine
+// for a short plain-text post with one link, but looks disconnected in
+// a longer Markdown post where the link might be near the top and the
+// card ends up stranded at the very bottom, past unrelated paragraphs
+// and attached photos.
+//
+// Deliberately plain DOM manipulation on the already-rendered content
+// (contentRef), not React children -- `content` is a server-rendered
+// HTML string handed to PostContent, so there's no JSX tree to splice a
+// <YouTubeCard> into at the right spot. This mirrors math-block.jsx's
+// existing pattern of mutating contentRef.current directly for a
+// similar reason (post-processing rendered HTML content). <lite-youtube>
+// is a real custom element (registered by the import at the top of this
+// file), so building it with plain DOM APIs works the same as JSX would.
+export function InlineYouTubeCards({ contentRef, videoIds }) {
+  const insertedRef = useRef([]);
+
+  useEffect(() => {
+    // Always clear out whatever this effect inserted last time first,
+    // whether or not this run has anything new to insert -- content or
+    // videoIds may have changed.
+    insertedRef.current.forEach((el) => el.remove());
+    insertedRef.current = [];
+
+    const container = contentRef?.current;
+    if (!container || !videoIds?.length) return;
+
+    const idToAnchor = new Map();
+    for (const a of container.querySelectorAll('a[href]')) {
+      const id = a.href?.match(YT_HREF_ID_REGEX)?.[1];
+      if (id && !idToAnchor.has(id)) idToAnchor.set(id, a);
+    }
+
+    for (const videoId of videoIds) {
+      const link = idToAnchor.get(videoId);
+      if (!link) continue; // Shouldn't normally happen -- youtubeVideoIds
+      // is itself derived from this same content -- but content could
+      // theoretically change between the two in a way that drops a
+      // link, so don't throw if a match isn't found.
+      const anchor = link.closest('p, li, blockquote') || link;
+      const card = createYouTubeCardElement(videoId);
+      anchor.insertAdjacentElement('afterend', card);
+      insertedRef.current.push(card);
+    }
+
+    return () => {
+      insertedRef.current.forEach((el) => el.remove());
+      insertedRef.current = [];
+    };
+  }, [contentRef, videoIds]);
+
+  return null;
+}
+
+function createYouTubeCardElement(videoId) {
+  const card = document.createElement('div');
+  card.className = 'card video youtube-card';
+  card.addEventListener('click', (e) => e.stopPropagation());
+
+  const liteYoutube = document.createElement('lite-youtube');
+  liteYoutube.setAttribute('videoid', videoId);
+  liteYoutube.setAttribute('nocookie', '');
+  liteYoutube.setAttribute('autoPause', '');
+  liteYoutube.style.pointerEvents = 'auto';
+  card.appendChild(liteYoutube);
+
+  // Best-effort, same as YouTubeCard's own title fetch -- fill it in
+  // once it resolves rather than blocking insertion on it.
+  fetch(
+    `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
+  )
+    .then((r) => r.json())
+    .then((data) => {
+      if (data?.title) liteYoutube.setAttribute('videotitle', data.title);
+    })
+    .catch(() => {});
+
+  return card;
 }

@@ -81,8 +81,8 @@ import QuotesModal from './quotes-modal';
 import RelativeTime from './relative-time';
 import StatusButton from './status-button';
 import StatusCard, {
-  YouTubeCard,
   extractYouTubeVideoIds,
+  InlineYouTubeCards,
 } from './status-card';
 import StatusCompact from './status-compact';
 import StatusTags from './status-tags';
@@ -2701,6 +2701,22 @@ function Status({
                     onRevert={reloadPostContent}
                   />
                 )}
+                {!!youtubeVideoIds.length && (
+                  // Deliberately independent of !mediaAttachments.length
+                  // -- see youtubeVideoIds's own comment above for why a
+                  // post can have both attached photos and inline-video
+                  // links. Positions each card right after its link's
+                  // paragraph via direct DOM manipulation on contentRef,
+                  // same pattern as MathBlock right above -- not a
+                  // <YouTubeCard> rendered as a normal child, since
+                  // there's no JSX tree location that corresponds to
+                  // "next to this specific link inside a server-rendered
+                  // HTML string."
+                  <InlineYouTubeCards
+                    contentRef={contentRef}
+                    videoIds={youtubeVideoIds}
+                  />
+                )}
                 {!!poll && (
                   <Poll
                     lang={language}
@@ -2896,13 +2912,6 @@ function Status({
                       }
                     />
                   ) : null)}
-                {/* Deliberately outside the !mediaAttachments.length gate
-                above -- see youtubeVideoIds's own comment for why a post
-                can have both attached photos and inline-video links. One
-                card per distinct video linked in the content. */}
-                {youtubeVideoIds.map((videoId) => (
-                  <YouTubeCard key={videoId} videoId={videoId} />
-                ))}
                 {size !== 's' && <StatusTags tags={tags} content={content} />}
               </>
             )}
