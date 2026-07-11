@@ -1672,11 +1672,24 @@ function Compose({
                   }
                 }
 
+                // Not awaited -- deliberately not blocking the composer
+                // on this. But the promise itself IS captured (unlike a
+                // true fire-and-forget) and handed to onClose below as
+                // `pendingVideoUploads`, because when compose runs in
+                // its own popped-out browser window (src/compose.jsx,
+                // the `standalone`/`hasOpener` case), that window calls
+                // window.close() right after onClose fires -- which
+                // kills this window's whole JS realm, including this
+                // still-running fetch, before it can ever finish. A
+                // background task can outlive the *React component*
+                // that started it just fine, but it can't outlive the
+                // *browser window* itself closing. See onClose's
+                // implementation in src/compose.jsx for the other half
+                // of this fix (awaiting pendingVideoUploads before
+                // actually closing the window).
+                let pendingVideoUploads;
                 if (inlineVideoUploads.length > 0) {
-                  // Fire-and-forget -- deliberately not awaited. See
-                  // finishVideoUploads's own doc comment for why, and
-                  // the tradeoff it implies.
-                  finishVideoUploads({
+                  pendingVideoUploads = finishVideoUploads({
                     statusId: newStatus.id,
                     originalText: params.status,
                     baseParams: params,
@@ -1704,6 +1717,7 @@ function Compose({
                   newStatus,
                   instance,
                   scheduledAt,
+                  pendingVideoUploads,
                 });
               } catch (e) {
                 states.composerState.publishing = false;
