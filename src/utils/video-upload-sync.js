@@ -141,7 +141,16 @@ export async function processVideoUploadJobGroup(statusId, jobs) {
         await updateVideoUploadJob(statusId, job.token, { uploadedUrl: url });
         return { ...job, uploadedUrl: url };
       } catch (err) {
-        if (err?.retryable) throw err;
+        // Default to retryable: a raw fetch() rejection (dropped
+        // connection, the browser cutting off this service worker's
+        // execution time budget mid-upload, etc.) has no `.retryable`
+        // property at all, and undefined must NOT be treated the same
+        // as `false` here -- those are exactly the kind of transient
+        // failures Background Sync exists to retry. Only the errors
+        // this file explicitly constructs with `retryable: false`
+        // (uploadToYouTube's 4xx / malformed-response cases) should
+        // actually give up.
+        if (err?.retryable !== false) throw err;
         await updateVideoUploadJob(statusId, job.token, { failed: true });
         return { ...job, failed: true };
       }
