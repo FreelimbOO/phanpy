@@ -2348,6 +2348,23 @@ function Compose({
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (!file) return;
+                    // `accept` above is only a picker-UI hint, not an
+                    // enforced filter -- e.g. Windows' native file dialog
+                    // always offers an "All Files" override in its type
+                    // dropdown regardless of `accept`, same underlying
+                    // gap as the normal attach picker had (see
+                    // FilePickerInput's onVideoPick doc comment). Route
+                    // an actual video here to the same YouTube-upload
+                    // flow the normal attach button uses, rather than
+                    // letting it slip through as a "Markdown inline
+                    // image" -- which would silently upload it to local
+                    // storage via the normal synchronous media endpoint
+                    // and block the composer on it.
+                    if (file.type?.startsWith('video/')) {
+                      pickInlineVideo(file);
+                      e.target.value = '';
+                      return;
+                    }
                     const token = `${Date.now()}-${inlineImageTokenCounter.current++}`;
                     setInlineImageUploads((uploads) =>
                       uploads.concat({ token, file }),
