@@ -38,6 +38,11 @@ import unfurlMastodonLink from '../utils/unfurl-link';
 import urlRegexObj from '../utils/url-regex';
 import useCloseWatcher from '../utils/useCloseWatcher';
 import useInterval from '../utils/useInterval';
+import {
+  saveVideoUploadJob,
+  supportsBackgroundSync,
+  VIDEO_UPLOAD_SYNC_TAG,
+} from '../utils/video-upload-sync';
 import useThrottledResizeObserver from '../utils/useThrottledResizeObserver';
 import visibilityIconsMap from '../utils/visibility-icons-map';
 import visibilityText from '../utils/visibility-text';
@@ -1672,38 +1677,65 @@ function Compose({
                   }
                 }
 
-                // Not awaited -- deliberately not blocking the composer
-                // on this. But the promise itself IS captured (unlike a
-                // true fire-and-forget) and handed to onClose below as
-                // `pendingVideoUploads`, because when compose runs in
-                // its own popped-out browser window (src/compose.jsx,
-                // the `standalone`/`hasOpener` case), that window calls
-                // window.close() right after onClose fires -- which
-                // kills this window's whole JS realm, including this
-                // still-running fetch, before it can ever finish. A
-                // background task can outlive the *React component*
-                // that started it just fine, but it can't outlive the
-                // *browser window* itself closing. See onClose's
-                // implementation in src/compose.jsx for the other half
-                // of this fix (awaiting pendingVideoUploads before
-                // actually closing the window).
+                // Two different strategies depending on browser support,
+                // see video-upload-sync.js's top comment for the full
+                // story of why this got more involved than a plain
+                // fire-and-forget fetch: closing Phanpy's popped-out
+                // compose window, and (much more commonly) a mobile
+                // browser backgrounding/throttling this tab -- e.g.
+                // launching the real camera app to record a video
+                // backgrounds Chrome for the whole recording -- can both
+                // kill an in-flight fetch before it finishes.
                 let pendingVideoUploads;
                 if (inlineVideoUploads.length > 0) {
-                  pendingVideoUploads = finishVideoUploads({
-                    statusId: newStatus.id,
-                    originalText: params.status,
-                    baseParams: params,
-                    inlineVideoUploads,
-                    masto,
-                    instance,
-                    client,
-                  }).catch((e) => {
-                    // finishVideoUploads already turns individual failed
-                    // uploads into an in-post failure note; this is only
-                    // a last-resort net for the edit call itself failing
-                    // (e.g. the whole PUT request erroring out).
-                    console.error('finishVideoUploads failed', e);
-                  });
+                  if (supportsBackgroundSync()) {
+                    // Hand the actual upload + status edit off to the
+                    // service worker via Background Sync: it runs there
+                    // independent of this tab's lifecycle, so closing or
+                    // backgrounding this window/tab no longer matters
+                    // once the job is saved. Only the save + register
+                    // step itself needs to survive the tab closing (see
+                    // onClose below), not the whole upload.
+                    pendingVideoUploads = (async () => {
+                      const placeholderFor = (token) =>
+                        `[uploading-video:${token}]`;
+                      await Promise.all(
+                        inlineVideoUploads.map(({ token, file }) =>
+                          saveVideoUploadJob(newStatus.id, token, {
+                            file,
+                            fileName: file.name,
+                            instance,
+                            accessToken: client.accessToken,
+                            statusId: newStatus.id,
+                            originalText: params.status,
+                            baseParams: params,
+                            placeholder: placeholderFor(token),
+                          }),
+                        ),
+                      );
+                      const registration = await navigator.serviceWorker.ready;
+                      await registration.sync.register(VIDEO_UPLOAD_SYNC_TAG);
+                    })().catch((e) => {
+                      console.error('Failed to queue background video upload(s)', e);
+                    });
+                  } else {
+                    // Fallback for browsers without Background Sync
+                    // support (Safari, notably): same direct-fetch
+                    // approach as before, still not awaited, still
+                    // vulnerable to the tab closing/backgrounding
+                    // mid-upload, but no worse than before this fix.
+                    pendingVideoUploads = finishVideoUploads({
+                      statusId: newStatus.id,
+                      originalText: params.status,
+                      baseParams: params,
+                      inlineVideoUploads,
+                      masto,
+                      instance,
+                      client,
+                    }).catch((e) => {
+                      console.error('finishVideoUploads failed', e);
+                    });
+                  }
                 }
 
                 states.composerState.minimized = false;
