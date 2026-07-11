@@ -174,7 +174,7 @@ function Compose({
   const lf = LF(i18n.locale);
 
   console.warn('RENDER COMPOSER');
-  const { masto, instance } = api();
+  const { masto, instance, client } = api();
   const [uiState, setUIState] = useState('default');
   const UID = useRef(draftStatus?.uid || uid());
   console.log('Compose UID', UID.current);
@@ -241,6 +241,22 @@ function Compose({
   // become inline-only Markdown image references, not status attachments.
   const [inlineImageUploads, setInlineImageUploads] = useState([]);
   const inlineImageTokenCounter = useRef(0);
+
+  // Same placeholder trick as inlineImageUploads above, but for video:
+  // files picked via "Insert as inline video" (Markdown mode only) get a
+  // plain-text placeholder token inserted at the cursor immediately, and
+  // are only uploaded at submit time -- not to GtS's normal media
+  // pipeline, but to the instance's configured YouTube channel (as an
+  // unlisted video) via POST /api/v1/media/youtube, a freelimbo-specific
+  // extension. The placeholder is then swapped for the real YouTube
+  // watch URL. These files never become status attachments or media_ids
+  // -- GtS never sees them as media at all, only as a plain link in the
+  // status text once the placeholder is resolved. Phanpy's own YouTube
+  // link detection (see status-card.jsx) picks that link up client-side
+  // and renders an embedded player, independent of any server-side link
+  // preview support.
+  const [inlineVideoUploads, setInlineVideoUploads] = useState([]);
+  const inlineVideoTokenCounter = useRef(0);
 
   const prefs = getPreferences();
 
@@ -1454,6 +1470,60 @@ function Compose({
                   }
                 }
 
+                if (inlineVideoUploads.length > 0) {
+                  // Upload each pending "insert as inline video" file to
+                  // the instance's configured YouTube channel (unlisted),
+                  // then swap its [uploading-video:TOKEN] placeholder in
+                  // the status text for the real watch URL. This hits a
+                  // freelimbo-specific endpoint, not masto.js, since it's
+                  // not part of the Mastodon API.
+                  const inlineVideoResults = await Promise.allSettled(
+                    inlineVideoUploads.map(({ token, file }) => {
+                      const form = new FormData();
+                      form.append('file', file);
+                      return fetch(`https://${instance}/api/v1/media/youtube`, {
+                        method: 'POST',
+                        headers: {
+                          Authorization: `Bearer ${client.accessToken}`,
+                        },
+                        body: form,
+                      })
+                        .then(async (res) => {
+                          if (!res.ok) {
+                            const body = await res.json().catch(() => null);
+                            throw new Error(
+                              body?.error || `YouTube upload failed (${res.status})`,
+                            );
+                          }
+                          return res.json();
+                        })
+                        .then((res) => ({ token, url: res.url }));
+                    }),
+                  );
+
+                  const failedVideos = inlineVideoResults.filter(
+                    (result) =>
+                      result.status === 'rejected' || !result.value?.url,
+                  );
+                  if (failedVideos.length > 0) {
+                    states.composerState.publishing = false;
+                    states.composerState.publishingError = true;
+                    setUIState('error');
+                    failedVideos.forEach((result) => {
+                      if (result.status === 'rejected') {
+                        console.error(result);
+                      }
+                    });
+                    alert(t`Failed to upload one or more videos to YouTube.`);
+                    return;
+                  }
+
+                  for (const result of inlineVideoResults) {
+                    const { token, url } = result.value;
+                    status = status.replaceAll(`[uploading-video:${token}]`, url);
+                  }
+                }
+
                 /* NOTE:
                 Using snakecase here because masto.js's `isObject` returns false for `params`, ONLY happens when opening in pop-out window. This is maybe due to `window.masto` variable being passed from the parent window. The check that failed is `x.constructor === Object`, so maybe the `Object` in new window is different than parent window's?
                 Code: https://github.com/neet/masto.js/blob/dd0d649067b6a2b6e60fbb0a96597c373a255b00/src/serializers/is-object.ts#L2
@@ -2178,6 +2248,37 @@ function Compose({
                   }}
                 />
                 <Icon icon="media" alt="Insert as inline image" />
+              </label>
+            )}{' '}
+            {supports('@gotosocial') && contentType === 'text/markdown' && (
+              // Not i18n'd, same reasoning as the toggle above.
+              <label class="toolbar-button" title="Insert as inline video">
+                <input
+                  type="file"
+                  hidden
+                  accept={supportedImagesVideosTypes
+                    ?.filter((mimeType) => /^video/i.test(mimeType))
+                    .join(',')}
+                  disabled={uiState === 'loading'}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const token = `${Date.now()}-${inlineVideoTokenCounter.current++}`;
+                    setInlineVideoUploads((uploads) =>
+                      uploads.concat({ token, file }),
+                    );
+                    insertTextAtCursor({
+                      targetElement: textareaRef.current,
+                      text: `[uploading-video:${token}]`,
+                    });
+                    e.target.value = '';
+                  }}
+                />
+                {/* No dedicated "video" icon exists in ICONS.jsx/the
+                mingcute set this project vendors; reusing "upload"
+                rather than inventing a new icon key that generate-icons.js
+                might not be able to resolve. */}
+                <Icon icon="upload" alt="Insert as inline video" />
               </label>
             )}{' '}
             <label
