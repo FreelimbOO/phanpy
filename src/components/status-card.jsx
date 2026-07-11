@@ -296,12 +296,28 @@ function StatusCard({ card, selfReferential, selfAuthor, instance }) {
 
 export default StatusCard;
 
-// YouTube video ID regex — matches watch?v=, youtu.be/, and /shorts/ URLs
+// YouTube video ID regex — matches watch?v=, youtu.be/, and /shorts/ URLs.
+// `g` flag so extractYouTubeVideoIds can find every match in the content,
+// not just the first -- a post can have multiple inline-video uploads
+// (see compose.jsx's finishVideoUploads), each becoming its own
+// youtu.be link.
 const YT_REGEX =
-  /href="https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?(?:[^"]*&)*v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/i;
+  /href="https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?(?:[^"]*&)*v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/gi;
 
-export function extractYouTubeVideoId(html) {
-  return html?.match(YT_REGEX)?.[1] || null;
+// Returns every distinct YouTube video ID linked in the given (rendered)
+// HTML content, in the order they first appear, or [] if none.
+export function extractYouTubeVideoIds(html) {
+  if (!html) return [];
+  const ids = [];
+  const seen = new Set();
+  for (const match of html.matchAll(YT_REGEX)) {
+    const id = match[1];
+    if (!seen.has(id)) {
+      seen.add(id);
+      ids.push(id);
+    }
+  }
+  return ids;
 }
 
 export function YouTubeCard({ videoId }) {

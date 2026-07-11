@@ -82,7 +82,7 @@ import RelativeTime from './relative-time';
 import StatusButton from './status-button';
 import StatusCard, {
   YouTubeCard,
-  extractYouTubeVideoId,
+  extractYouTubeVideoIds,
 } from './status-card';
 import StatusCompact from './status-compact';
 import StatusTags from './status-tags';
@@ -2153,10 +2153,19 @@ function Status({
     return isSameURL(c.url, card?.url);
   });
 
-  const youtubeVideoId = useMemo(() => {
-    if (card || !content) return null;
-    if (!/youtube\.com|youtu\.be/i.test(content)) return null;
-    return extractYouTubeVideoId(content);
+  // Deliberately independent of mediaAttachments -- unlike the `card`
+  // rendering below (mutually exclusive with attached media, per normal
+  // Mastodon convention), a post here can legitimately have BOTH photo
+  // attachments (via the normal attach flow) AND one or more inline
+  // videos (via compose.jsx's "insert as inline video", which never
+  // attaches the video itself -- see that file's comments -- only a
+  // youtu.be link in the text). Still guarded on `!card` so a future
+  // native GtS link-preview card (still unmerged upstream as of this
+  // writing) takes priority over this fallback instead of both showing.
+  const youtubeVideoIds = useMemo(() => {
+    if (card || !content) return [];
+    if (!/youtube\.com|youtu\.be/i.test(content)) return [];
+    return extractYouTubeVideoIds(content);
   }, [card, content]);
 
   return (
@@ -2886,9 +2895,14 @@ function Status({
                           : undefined
                       }
                     />
-                  ) : youtubeVideoId ? (
-                    <YouTubeCard videoId={youtubeVideoId} />
                   ) : null)}
+                {/* Deliberately outside the !mediaAttachments.length gate
+                above -- see youtubeVideoIds's own comment for why a post
+                can have both attached photos and inline-video links. One
+                card per distinct video linked in the content. */}
+                {youtubeVideoIds.map((videoId) => (
+                  <YouTubeCard key={videoId} videoId={videoId} />
+                ))}
                 {size !== 's' && <StatusTags tags={tags} content={content} />}
               </>
             )}
