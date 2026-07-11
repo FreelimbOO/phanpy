@@ -292,17 +292,6 @@ function Compose({
     /^(image|video)/i.test(mimeType),
   );
 
-  // When this instance offers the GtS-specific "insert as inline video"
-  // path (routes to YouTube instead of local/S3 storage), strip video out
-  // of the *normal* attach-media picker entirely, so there's exactly one
-  // unambiguous button for each media type instead of two that both
-  // accept video but send it to very different places. On non-GtS
-  // instances, where no alternate video path exists, leave the normal
-  // picker accepting video as it always has.
-  const normalAttachMimeTypes = supports('@gotosocial')
-    ? supportedMimeTypes?.filter((mimeType) => !/^video/i.test(mimeType))
-    : supportedMimeTypes;
-
   const textareaRef = useRef();
   const spoilerTextRef = useRef();
 
@@ -334,23 +323,42 @@ function Compose({
   const [inlineImageUploads, setInlineImageUploads] = useState([]);
   const inlineImageTokenCounter = useRef(0);
 
-  // Same placeholder trick as inlineImageUploads above, but for video:
-  // files picked via "Add video" (available in both plain-text and
-  // Markdown mode -- unlike inlineImageUploads, this has no Markdown
-  // syntax dependency) get a plain-text placeholder token inserted at
-  // the cursor immediately, and
-  // are only uploaded at submit time -- not to GtS's normal media
-  // pipeline, but to the instance's configured YouTube channel (as an
-  // unlisted video) via POST /api/v1/media/youtube, a freelimbo-specific
-  // extension. The placeholder is then swapped for the real YouTube
-  // watch URL. These files never become status attachments or media_ids
-  // -- GtS never sees them as media at all, only as a plain link in the
-  // status text once the placeholder is resolved. Phanpy's own YouTube
-  // link detection (see status-card.jsx) picks that link up client-side
-  // and renders an embedded player, independent of any server-side link
-  // preview support.
+  // Same placeholder trick as inlineImageUploads above, but for video.
+  // Any video file selected through the *normal* "attach media" picker
+  // (FilePickerInput's onVideoPick prop, wired up below) gets routed
+  // here instead of setMediaAttachments -- there's deliberately no
+  // separate "add video" button/input to pick the wrong one of by
+  // accident (an earlier version of this had one, and it turned out to
+  // be easy to bypass: e.g. Android's file picker lets you switch to
+  // "Google Photos" and pick a video even when the input's `accept`
+  // attribute says images-only, since `accept` is only a UI hint some
+  // pickers don't respect). Instead, the actual file.type is checked in
+  // JS immediately after selection, in FilePickerInput itself, which
+  // can't be bypassed by whatever OS/browser picker UI supplied the
+  // file.
+  //
+  // A token gets inserted into the textarea immediately as
+  // [uploading-video:TOKEN], and the file is only actually uploaded at
+  // submit time -- not to GtS's normal media pipeline, but to the
+  // instance's configured YouTube channel (as an unlisted video) via
+  // POST /api/v1/media/youtube, a freelimbo-specific extension. The
+  // placeholder is later swapped for the real YouTube watch URL (see
+  // finishVideoUploads above). These files never become status
+  // attachments or media_ids -- GtS never sees them as media at all,
+  // only as a plain link in the status text once the placeholder is
+  // resolved. Phanpy's own YouTube link detection (see status-card.jsx)
+  // picks that link up client-side and renders an embedded player,
+  // independent of any server-side link preview support.
   const [inlineVideoUploads, setInlineVideoUploads] = useState([]);
   const inlineVideoTokenCounter = useRef(0);
+  const pickInlineVideo = (file) => {
+    const token = `${Date.now()}-${inlineVideoTokenCounter.current++}`;
+    setInlineVideoUploads((uploads) => uploads.concat({ token, file }));
+    insertTextAtCursor({
+      targetElement: textareaRef.current,
+      text: `[uploading-video:${token}]`,
+    });
+  };
 
   const prefs = getPreferences();
 
@@ -2002,55 +2010,18 @@ function Compose({
                     <label class="compose-menu-add-media-field">
                       <FilePickerInput
                         hidden
-                        supportedMimeTypes={normalAttachMimeTypes}
+                        supportedMimeTypes={supportedMimeTypes}
                         maxMediaAttachments={maxMediaAttachments}
                         mediaAttachments={mediaAttachments}
                         disabled={mediaButtonDisabled}
                         setMediaAttachments={setMediaAttachments}
+                        onVideoPick={
+                          supports('@gotosocial') ? pickInlineVideo : undefined
+                        }
                       />
                     </label>
                     <Icon icon="media" /> <span>{_(ADD_LABELS.media)}</span>
                   </MenuItem>
-                  {supports('@gotosocial') && (
-                    // Not i18n'd, same reasoning as the toggle elsewhere
-                    // in this file. Narrow/mobile-layout counterpart of
-                    // the "insert as inline video" toolbar button further
-                    // down -- same handler, same [uploading-video:TOKEN]
-                    // placeholder mechanism, just reachable from the "+"
-                    // menu instead of the wide toolbar.
-                    <MenuItem
-                      disabled={uiState === 'loading'}
-                      className="compose-menu-add-media"
-                    >
-                      <label class="compose-menu-add-media-field">
-                        <input
-                          type="file"
-                          hidden
-                          accept={supportedImagesVideosTypes
-                            ?.filter((mimeType) => /^video/i.test(mimeType))
-                            .join(',')}
-                          disabled={uiState === 'loading'}
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            const token = `${Date.now()}-${inlineVideoTokenCounter.current++}`;
-                            setInlineVideoUploads((uploads) =>
-                              uploads.concat({ token, file }),
-                            );
-                            insertTextAtCursor({
-                              targetElement: textareaRef.current,
-                              text: `[uploading-video:${token}]`,
-                            });
-                            e.target.value = '';
-                          }}
-                        />
-                      </label>
-                      {/* No dedicated "video" icon exists in ICONS.jsx --
-                      reusing "upload" the same way the toolbar button
-                      does. */}
-                      <Icon icon="upload" /> <span>Add video</span>
-                    </MenuItem>
-                  )}
                   <MenuItem
                     disabled={cwButtonDisabled}
                     onClick={onCWButtonClick}
@@ -2119,11 +2090,14 @@ function Compose({
                 )}
                 <label class="toolbar-button">
                   <FilePickerInput
-                    supportedMimeTypes={normalAttachMimeTypes}
+                    supportedMimeTypes={supportedMimeTypes}
                     maxMediaAttachments={maxMediaAttachments}
                     mediaAttachments={mediaAttachments}
                     disabled={mediaButtonDisabled}
                     setMediaAttachments={setMediaAttachments}
+                    onVideoPick={
+                      supports('@gotosocial') ? pickInlineVideo : undefined
+                    }
                   />
                   <Icon icon="media" alt={_(ADD_LABELS.media)} />
                 </label>
@@ -2372,49 +2346,6 @@ function Compose({
                   }}
                 />
                 <Icon icon="media" alt="Insert as inline image" />
-              </label>
-            )}{' '}
-            {supports('@gotosocial') && (
-              // Not i18n'd, same reasoning as the toggle above.
-              //
-              // Unlike "insert as inline image" above, this isn't
-              // restricted to Markdown mode: the image placeholder relies
-              // on Markdown's ![]() syntax to render, but the video
-              // placeholder just becomes a bare https://youtu.be/... URL,
-              // and GtS autolinks bare URLs in plain-text posts too (see
-              // internal/text/plain.go's FromPlain, which still runs
-              // goldmark underneath for link/mention/hashtag parsing even
-              // in "plain text" mode). Phanpy's own YouTubeCard detection
-              // (status-card.jsx) just regexes the rendered content for a
-              // youtube.com/youtu.be link either way, so it works
-              // identically in both content types.
-              <label class="toolbar-button" title="Add video">
-                <input
-                  type="file"
-                  hidden
-                  accept={supportedImagesVideosTypes
-                    ?.filter((mimeType) => /^video/i.test(mimeType))
-                    .join(',')}
-                  disabled={uiState === 'loading'}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    const token = `${Date.now()}-${inlineVideoTokenCounter.current++}`;
-                    setInlineVideoUploads((uploads) =>
-                      uploads.concat({ token, file }),
-                    );
-                    insertTextAtCursor({
-                      targetElement: textareaRef.current,
-                      text: `[uploading-video:${token}]`,
-                    });
-                    e.target.value = '';
-                  }}
-                />
-                {/* No dedicated "video" icon exists in ICONS.jsx/the
-                mingcute set this project vendors; reusing "upload"
-                rather than inventing a new icon key that generate-icons.js
-                might not be able to resolve. */}
-                <Icon icon="upload" alt="Add video" />
               </label>
             )}{' '}
             <label
