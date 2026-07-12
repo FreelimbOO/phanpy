@@ -1390,7 +1390,10 @@ function PushNotificationsSection({ onClose }) {
                   <Trans>
                     Push permission was not granted since your last login.
                     You'll need to{' '}
-                    <Link to={`/login?instance=${instance}`} onClick={onClose}>
+                    <Link
+                      to={`/login?instance=${instance}&submit=1`}
+                      onClick={onClose}
+                    >
                       <b>log in</b> again to grant push permission
                     </Link>
                     .

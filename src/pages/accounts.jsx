@@ -28,6 +28,8 @@ import {
 
 const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
 
+const { PHANPY_DEFAULT_INSTANCE: DEFAULT_INSTANCE } = import.meta.env;
+
 function Accounts({ onClose }) {
   const { t } = useLingui();
   const { masto } = api();
@@ -118,7 +120,7 @@ function Accounts({ onClose }) {
                       onClick={() => {
                         haptics.trigger('medium');
                         if (isLoggedOut) {
-                          location.href = `/#/login?instance=${account.instanceURL}`;
+                          location.href = `/#/login?instance=${account.instanceURL}&submit=1`;
                           onClose();
                         } else if (isCurrent) {
                           states.showAccount = `${account.info.username}@${account.instanceURL}`;
@@ -315,7 +317,15 @@ function Accounts({ onClose }) {
             })}
           </ul>
           <p>
-            <Link to="/login" class="button plain2" onClick={onClose}>
+            <Link
+              to={
+                DEFAULT_INSTANCE
+                  ? `/login?instance=${DEFAULT_INSTANCE}&submit=1`
+                  : '/login'
+              }
+              class="button plain2"
+              onClick={onClose}
+            >
               <Icon icon="plus" />{' '}
               <span>
                 <Trans>Add an existing account</Trans>
