@@ -507,6 +507,10 @@ function Status({
   // them here so they don't also duplicate in the gallery below the post.
   // Standard Mastodon-API instances never set this field, so this is a
   // no-op (empty filter) anywhere else.
+  // TEMPORARY DEBUG (remove after diagnosing inline-field pass-through):
+  if (rawMediaAttachments.length > 0) {
+    console.log('[inline-debug] rawMediaAttachments for status', id, rawMediaAttachments);
+  }
   const mediaAttachments = rawMediaAttachments.filter((media) => !media.inline);
 
   const [languageAutoDetected, setLanguageAutoDetected] = useState(null);
