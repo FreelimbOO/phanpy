@@ -19,6 +19,17 @@ navigationPreload.enable();
 
 self.__WB_DISABLE_DEV_LOGS = true;
 
+// Activate a newly-installed SW immediately instead of waiting for all
+// controlled tabs to close first. Without this, an old SW instance can keep
+// controlling an already-open tab indefinitely -- including serving stale
+// cached failures from before a fix was deployed -- until the user manually
+// closes every tab or clears site data. See
+// gts-markdown-inline-images-lessons.md #6, where exactly this looked like a
+// code regression but was actually a stale SW that never got replaced.
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
 self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
