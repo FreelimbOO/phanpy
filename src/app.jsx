@@ -12,6 +12,7 @@ import {
   Route,
   Routes,
   useLocation,
+  useNavigate,
   useParams,
 } from 'react-router-dom';
 import { subscribe } from 'valtio';
@@ -71,6 +72,7 @@ import {
 import { getAccessToken } from './utils/auth';
 import { AuthProvider, useAuth } from './utils/auth-context';
 import focusDeck from './utils/focus-deck';
+import { startInstanceLogin } from './utils/oauth-login';
 import states, { hideAllModals, initStates, statusKey } from './utils/states';
 import store from './utils/store';
 import {
@@ -779,19 +781,42 @@ const PrimaryRoutes = memo(() => {
 function AuthRoute({ children }) {
   const isLoggedIn = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+  const startedRef = useRef(false);
 
-  if (!isLoggedIn) {
+  useEffect(() => {
+    if (isLoggedIn || !ROOT_DEFAULT_INSTANCE || startedRef.current) return;
+    startedRef.current = true;
+
     const redirectPath = location.pathname + location.search;
     store.session.set('loginRedirect', redirectPath);
+
+    // Open the sign-in popup directly, without navigating to /login
+    // first. The page the user was on (e.g. a profile they were
+    // browsing) stays mounted underneath the placeholder below, so if
+    // they cancel, we can send them right back to it instead of
+    // leaving them stuck on a broken login page.
+    startInstanceLogin(ROOT_DEFAULT_INSTANCE, {
+      onError: () => {
+        store.session.del('loginRedirect');
+        navigate(-1);
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn]);
+
+  if (!isLoggedIn) {
+    if (!ROOT_DEFAULT_INSTANCE) {
+      const redirectPath = location.pathname + location.search;
+      store.session.set('loginRedirect', redirectPath);
+      return <Navigate to="/login" replace />;
+    }
+    // Placeholder while the popup is up -- if cancelled, the effect
+    // above navigates back rather than falling through to a form.
     return (
-      <Navigate
-        to={
-          ROOT_DEFAULT_INSTANCE
-            ? `/login?instance=${ROOT_DEFAULT_INSTANCE}&submit=1`
-            : '/login'
-        }
-        replace
-      />
+      <main style={{ textAlign: 'center', padding: '4em 1em' }}>
+        <Loader />
+      </main>
     );
   }
   return children;

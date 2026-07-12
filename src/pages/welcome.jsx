@@ -16,6 +16,7 @@ import homeTabletLight from '../assets/screenshots/home-tablet-light@2x.png';
 
 import LangSelector from '../components/lang-selector';
 import Link from '../components/link';
+import { startInstanceLogin } from '../utils/oauth-login';
 import states from '../utils/states';
 import useTitle from '../utils/useTitle';
 
@@ -50,16 +51,26 @@ function Welcome() {
             <Trans>A minimalistic opinionated Mastodon web client.</Trans>
           </p>
           <p>
-            <Link
-              to={
-                DEFAULT_INSTANCE
-                  ? `/login?instance=${DEFAULT_INSTANCE}&submit=1`
-                  : '/login'
-              }
-              class="button plain6"
-            >
-              {DEFAULT_INSTANCE ? t`Log in` : t`Log in with Mastodon`}
-            </Link>
+            {DEFAULT_INSTANCE ? (
+              <button
+                type="button"
+                class="button plain6"
+                onClick={() => {
+                  // Open the sign-in popup right here -- if it's closed
+                  // before finishing, this page is untouched, no detour
+                  // through the instance-picker page.
+                  startInstanceLogin(DEFAULT_INSTANCE, {
+                    onError: () => {},
+                  });
+                }}
+              >
+                {t`Log in`}
+              </button>
+            ) : (
+              <Link to="/login" class="button plain6">
+                {t`Log in with Mastodon`}
+              </Link>
+            )}
           </p>
           {!DEFAULT_INSTANCE && (
             <p class="insignificant">

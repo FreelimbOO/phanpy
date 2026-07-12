@@ -37,6 +37,7 @@ import {
   useEditHistory,
 } from '../utils/edit-history-context';
 import htmlContentLength from '../utils/html-content-length';
+import { startInstanceLogin } from '../utils/oauth-login';
 import shortenNumber from '../utils/shorten-number';
 import states, {
   getStatus,
@@ -1099,16 +1100,27 @@ function StatusThread({ id, closeLink = '/', instance: propInstance }) {
                       not possible.
                     </Trans>
                   </p>
-                  <Link
-                    to={
-                      DEFAULT_INSTANCE
-                        ? `/login?instance=${DEFAULT_INSTANCE}&submit=1`
-                        : '/login'
-                    }
-                    class="button"
-                  >
-                    <Trans>Log in</Trans>
-                  </Link>
+                  {DEFAULT_INSTANCE ? (
+                    <button
+                      type="button"
+                      class="button"
+                      onClick={() => {
+                        // Open the sign-in popup right here -- if it's
+                        // closed before finishing, this page is
+                        // untouched, no detour through the
+                        // instance-picker page.
+                        startInstanceLogin(DEFAULT_INSTANCE, {
+                          onError: () => {},
+                        });
+                      }}
+                    >
+                      <Trans>Log in</Trans>
+                    </button>
+                  ) : (
+                    <Link to="/login" class="button">
+                      <Trans>Log in</Trans>
+                    </Link>
+                  )}
                 </div>
               ) : (
                 !sameInstance && (

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { Link } from 'react-router-dom';
 
 import logo from '../assets/freelimbo-logo.png';
+import { startInstanceLogin } from '../utils/oauth-login';
 
 const { PHANPY_DEFAULT_INSTANCE: DEFAULT_INSTANCE } = import.meta.env;
 
@@ -164,12 +165,24 @@ function PublicTimeline() {
           <span>{import.meta.env.PHANPY_APP_NAME || 'FreelimbO'}</span>
         </div>
         <div class="pt-header-actions">
-          <Link
-            to={DEFAULT_INSTANCE ? `/login?instance=${DEFAULT_INSTANCE}&submit=1` : '/login'}
-            class="button plain6"
-          >
-            Log in
-          </Link>
+          {DEFAULT_INSTANCE ? (
+            <button
+              type="button"
+              class="button plain6"
+              onClick={() => {
+                // Open the sign-in popup right here -- if it's closed
+                // before finishing, this page is untouched, no detour
+                // through the instance-picker page.
+                startInstanceLogin(DEFAULT_INSTANCE, { onError: () => {} });
+              }}
+            >
+              Log in
+            </button>
+          ) : (
+            <Link to="/login" class="button plain6">
+              Log in
+            </Link>
+          )}
         </div>
       </header>
 
