@@ -21,6 +21,8 @@ import ListExclusiveBadge from './list-exclusive-badge';
 import MenuLink from './menu-link';
 import SubMenu2 from './submenu2';
 
+const { PHANPY_DEFAULT_INSTANCE: DEFAULT_INSTANCE } = import.meta.env;
+
 function NavMenu(props) {
   const { t } = useLingui();
   const snapStates = useSnapshot(states);
@@ -326,7 +328,13 @@ function NavMenu(props) {
           ) : (
             <>
               <MenuDivider />
-              <MenuLink to="/login">
+              <MenuLink
+                to={
+                  DEFAULT_INSTANCE
+                    ? `/login?instance=${DEFAULT_INSTANCE}&submit=1`
+                    : '/login'
+                }
+              >
                 <Icon icon="user" size="l" />{' '}
                 <span>
                   <Trans>Log in</Trans>

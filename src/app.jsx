@@ -783,7 +783,16 @@ function AuthRoute({ children }) {
   if (!isLoggedIn) {
     const redirectPath = location.pathname + location.search;
     store.session.set('loginRedirect', redirectPath);
-    return <Navigate to="/login" replace />;
+    return (
+      <Navigate
+        to={
+          ROOT_DEFAULT_INSTANCE
+            ? `/login?instance=${ROOT_DEFAULT_INSTANCE}&submit=1`
+            : '/login'
+        }
+        replace
+      />
+    );
   }
   return children;
 }
