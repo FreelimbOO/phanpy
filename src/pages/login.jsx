@@ -212,10 +212,33 @@ function Login() {
     submitInstance(selectedInstanceText);
   };
 
-  if (submit) {
-    useEffect(() => {
+  useEffect(() => {
+    if (submit) {
       submitInstance(instance || selectedInstanceText);
-    }, []);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // When auto-submitting (e.g. coming from a "Log in" link on a
+  // single-instance deployment), skip the instance-picker form
+  // entirely and just show a loading state instead, so the user
+  // never sees a manual "enter your server" screen they don't need.
+  // If something goes wrong, fall through to the real form so
+  // they aren't stuck looking at a spinner forever.
+  if (submit && uiState !== 'error') {
+    return (
+      <main id="login" style={{ textAlign: 'center' }}>
+        <h1>
+          <img src={logo} alt="" width="80" height="80" />
+          <br />
+          <Trans>Log in</Trans>
+        </h1>
+        <p>
+          <Trans>Redirecting you to log in&hellip;</Trans>
+        </p>
+        <Loader />
+      </main>
+    );
   }
 
   return (
