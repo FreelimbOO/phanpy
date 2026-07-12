@@ -17,6 +17,7 @@ import languages from '../data/translang-languages';
 import { api, getPreferences, setPreferences } from '../utils/api';
 import getTranslateTargetLanguage from '../utils/get-translate-target-language';
 import localeCode2Text from '../utils/localeCode2Text';
+import { startInstanceLogin } from '../utils/oauth-login';
 import prettyBytes from '../utils/pretty-bytes';
 import {
   initSubscription,
@@ -1390,12 +1391,19 @@ function PushNotificationsSection({ onClose }) {
                   <Trans>
                     Push permission was not granted since your last login.
                     You'll need to{' '}
-                    <Link
-                      to={`/login?instance=${instance}&submit=1`}
-                      onClick={onClose}
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        // Re-auth in a popup right from Settings --
+                        // if it's closed before finishing, this panel
+                        // is untouched.
+                        startInstanceLogin(instance, { onError: () => {} });
+                        onClose();
+                      }}
                     >
                       <b>log in</b> again to grant push permission
-                    </Link>
+                    </a>
                     .
                   </Trans>
                 </p>

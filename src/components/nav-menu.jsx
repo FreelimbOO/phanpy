@@ -12,6 +12,7 @@ import { getLists } from '../utils/lists';
 import safeBoundingBoxPadding from '../utils/safe-bounding-box-padding';
 import states from '../utils/states';
 import store from '../utils/store';
+import { startInstanceLogin } from '../utils/oauth-login';
 import { getAccounts, getCurrentAccountID } from '../utils/store-utils';
 import supports from '../utils/supports';
 
@@ -328,18 +329,31 @@ function NavMenu(props) {
           ) : (
             <>
               <MenuDivider />
-              <MenuLink
-                to={
-                  DEFAULT_INSTANCE
-                    ? `/login?instance=${DEFAULT_INSTANCE}&submit=1`
-                    : '/login'
-                }
-              >
-                <Icon icon="user" size="l" />{' '}
-                <span>
-                  <Trans>Log in</Trans>
-                </span>
-              </MenuLink>
+              {DEFAULT_INSTANCE ? (
+                <MenuItem
+                  onClick={() => {
+                    startInstanceLogin(DEFAULT_INSTANCE, {
+                      onError: () => {
+                        // Popup closed/failed -- we never navigated
+                        // away from this page, so there's nothing to
+                        // reset or get stuck on.
+                      },
+                    });
+                  }}
+                >
+                  <Icon icon="user" size="l" />{' '}
+                  <span>
+                    <Trans>Log in</Trans>
+                  </span>
+                </MenuItem>
+              ) : (
+                <MenuLink to="/login">
+                  <Icon icon="user" size="l" />{' '}
+                  <span>
+                    <Trans>Log in</Trans>
+                  </span>
+                </MenuLink>
+              )}
             </>
           )}
         </section>

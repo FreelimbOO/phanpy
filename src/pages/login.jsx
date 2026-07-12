@@ -233,9 +233,7 @@ function Login() {
           <br />
           <Trans>Log in</Trans>
         </h1>
-        <p>
-          <Trans>Redirecting you to log in&hellip;</Trans>
-        </p>
+        <p>Redirecting you to log in&hellip;</p>
         <Loader />
       </main>
     );

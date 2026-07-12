@@ -17,6 +17,7 @@ import { api } from '../utils/api';
 import { revokeAccessToken } from '../utils/auth';
 import haptics from '../utils/haptics';
 import niceDateTime from '../utils/nice-date-time';
+import { startInstanceLogin } from '../utils/oauth-login';
 import states from '../utils/states';
 import store from '../utils/store';
 import {
@@ -120,7 +121,12 @@ function Accounts({ onClose }) {
                       onClick={() => {
                         haptics.trigger('medium');
                         if (isLoggedOut) {
-                          location.href = `/#/login?instance=${account.instanceURL}&submit=1`;
+                          // Re-authenticate in a popup without leaving
+                          // this page -- if the popup gets closed
+                          // before finishing, nothing has changed here.
+                          startInstanceLogin(account.instanceURL, {
+                            onError: () => {},
+                          });
                           onClose();
                         } else if (isCurrent) {
                           states.showAccount = `${account.info.username}@${account.instanceURL}`;
@@ -317,20 +323,33 @@ function Accounts({ onClose }) {
             })}
           </ul>
           <p>
-            <Link
-              to={
-                DEFAULT_INSTANCE
-                  ? `/login?instance=${DEFAULT_INSTANCE}&submit=1`
-                  : '/login'
-              }
-              class="button plain2"
-              onClick={onClose}
-            >
-              <Icon icon="plus" />{' '}
-              <span>
-                <Trans>Add an existing account</Trans>
-              </span>
-            </Link>
+            {DEFAULT_INSTANCE ? (
+              <button
+                type="button"
+                class="button plain2"
+                onClick={() => {
+                  // Open the sign-in popup right from here -- if it's
+                  // closed before finishing, this sheet is untouched,
+                  // no detour through the instance-picker page.
+                  startInstanceLogin(DEFAULT_INSTANCE, {
+                    onError: () => {},
+                  });
+                  onClose();
+                }}
+              >
+                <Icon icon="plus" />{' '}
+                <span>
+                  <Trans>Add an existing account</Trans>
+                </span>
+              </button>
+            ) : (
+              <Link to="/login" class="button plain2" onClick={onClose}>
+                <Icon icon="plus" />{' '}
+                <span>
+                  <Trans>Add an existing account</Trans>
+                </span>
+              </Link>
+            )}
           </p>
           {moreThanOneAccount && (
             <p>
