@@ -728,6 +728,30 @@ function Status({
 
   const contentLength = useMemo(() => htmlContentLength(content), [content]);
 
+  // Length check for inline auto-translate, counted on the text that is
+  // actually sent to the translator (URLs masked to «🔗», custom emojis
+  // masked) — see the <TranslationBlock text={...}> below, which uses the
+  // exact same getPostText() options.
+  //
+  // Why not reuse `contentLength`: htmlContentLength() only discounts
+  // Mastodon-style `.invisible` spans, but GoToSocial renders bare URLs as
+  // full-URL link text with NO .invisible spans, so every URL character
+  // counts. A short CJK post + a youtu.be / blog link then exceeds
+  // INLINE_TRANSLATE_LIMIT and inline translation silently never appears,
+  // even though the masked text really sent for translation is well under
+  // the limit.
+  const translateContentLength = useMemo(
+    () =>
+      content
+        ? getPostText(status, {
+            maskCustomEmojis: true,
+            maskURLs: true,
+            hideInlineQuote: true,
+          }).length
+        : 0,
+    [content],
+  );
+
   const [forceTranslate, setForceTranslate] = useState(_forceTranslate);
   // const targetLanguage = getTranslateTargetLanguage(true);
   // const contentTranslationHideLanguages =
@@ -750,7 +774,10 @@ function Status({
     ) {
       return false;
     }
-    return contentLength > 0 && contentLength <= INLINE_TRANSLATE_LIMIT;
+    return (
+      translateContentLength > 0 &&
+      translateContentLength <= INLINE_TRANSLATE_LIMIT
+    );
   }, [
     contentTranslation,
     contentTranslationAutoInline,
@@ -763,7 +790,7 @@ function Status({
     poll,
     card,
     mediaAttachments,
-    contentLength,
+    translateContentLength,
   ]);
 
   const [showEdited, setShowEdited] = useState(false);
