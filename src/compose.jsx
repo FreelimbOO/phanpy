@@ -111,25 +111,12 @@ function App() {
         standalone
         hasOpener={window.opener}
         onClose={async (results) => {
-          const { newStatus, fn = () => {}, pendingVideoUploads } =
-            results || {};
+          const { newStatus, fn = () => {} } = results || {};
           try {
             if (newStatus) {
               window.opener.__STATES__.reloadStatusPage++;
             }
             fn();
-            if (pendingVideoUploads) {
-              // Keep this popped-out window alive until the background
-              // YouTube upload(s) + status edit finish. Closing the
-              // window (setUIState('closed') below triggers
-              // window.close() in the effect above) would kill this
-              // window's whole JS realm mid-fetch otherwise -- the video
-              // upload can take a while, and there's nothing left running
-              // to swap the post's placeholder for the real link once
-              // this window is gone. See compose.jsx's own comment at
-              // the pendingVideoUploads call site for the full story.
-              await pendingVideoUploads;
-            }
             setUIState('closed');
           } catch (e) {}
         }}

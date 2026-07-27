@@ -9,12 +9,6 @@ import {
   StaleWhileRevalidate,
 } from 'workbox-strategies';
 
-import {
-  groupVideoUploadJobsByStatus,
-  processVideoUploadJobGroup,
-  VIDEO_UPLOAD_SYNC_TAG,
-} from '../src/utils/video-upload-sync.js';
-
 navigationPreload.enable();
 
 self.__WB_DISABLE_DEV_LOGS = true;
@@ -460,64 +454,3 @@ registerRoute(
   },
   'POST',
 );
-
-// FREELIMBO: BACKGROUND VIDEO UPLOAD SYNC
-// ========================================
-//
-// Background counterpart of compose.jsx's inline-video-upload flow (see
-// src/utils/video-upload-sync.js for the full story). Runs independent
-// of whether the page that queued the job is still open, or the tab is
-// backgrounded -- both real failure modes for the plain from-the-page
-// fetch this replaces on browsers that support it.
-
-self.addEventListener('sync', (event) => {
-  if (event.tag === VIDEO_UPLOAD_SYNC_TAG) {
-    event.waitUntil(processVideoUploadJobs());
-  }
-});
-
-async function processVideoUploadJobs() {
-  const groups = await groupVideoUploadJobsByStatus();
-  if (groups.size === 0) return;
-
-  console.log(`💪 SW processing video uploads for ${groups.size} post(s)`);
-
-  let anyGroupStillRetrying = false;
-
-  for (const [statusId, jobs] of groups) {
-    try {
-      await processVideoUploadJobGroup(statusId, jobs);
-      console.log(`💪 SW finished video uploads for post ${statusId}`);
-      await notifyVideoUploadDone(jobs[0]);
-    } catch (err) {
-      // processVideoUploadJobGroup only throws when at least one job in
-      // the group is still stuck on a retryable failure -- everything
-      // else (terminal failures, the eventual combined edit) it handles
-      // internally. Leave this group in IndexedDB and let the outer
-      // throw below tell Background Sync to retry later; whatever
-      // already succeeded in this group is already persisted, so the
-      // retry won't redo it.
-      console.error(`💪 SW video uploads for post ${statusId} still pending`, err);
-      anyGroupStillRetrying = true;
-    }
-  }
-
-  if (anyGroupStillRetrying) {
-    throw new Error('One or more post video-upload groups still retryable');
-  }
-}
-
-async function notifyVideoUploadDone(job) {
-  try {
-    await self.registration.showNotification('Video uploaded', {
-      body: 'Your video finished uploading and the post has been updated.',
-      icon: '/logo-192.png',
-      tag: `freelimbo-video-upload-${job.statusId}`,
-      timestamp: Date.now(),
-    });
-  } catch (e) {
-    // Notifications are a nice-to-have here, not load-bearing -- don't
-    // let a notification permission issue etc. affect job completion.
-    console.error('notifyVideoUploadDone failed', e);
-  }
-}

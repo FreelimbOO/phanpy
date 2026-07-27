@@ -38,11 +38,6 @@ import unfurlMastodonLink from '../utils/unfurl-link';
 import urlRegexObj from '../utils/url-regex';
 import useCloseWatcher from '../utils/useCloseWatcher';
 import useInterval from '../utils/useInterval';
-import {
-  saveVideoUploadJob,
-  supportsBackgroundSync,
-  VIDEO_UPLOAD_SYNC_TAG,
-} from '../utils/video-upload-sync';
 import useThrottledResizeObserver from '../utils/useThrottledResizeObserver';
 import visibilityIconsMap from '../utils/visibility-icons-map';
 import visibilityText from '../utils/visibility-text';
@@ -163,87 +158,6 @@ function fixLanguage(language) {
   return null;
 }
 
-// Uploads each pending "insert as inline video" file to the instance's
-// configured YouTube channel (POST /api/v1/media/youtube, a
-// freelimbo-specific extension, not part of the Mastodon API), then edits
-// the already-published/already-updated post to swap each
-// [uploading-video:TOKEN] placeholder for the real watch URL -- or, for
-// any upload that failed, a plain-text failure note instead.
-//
-// Deliberately called WITHOUT awaiting it from the compose submit
-// handler, and deliberately NOT tracked server-side: the post goes out
-// immediately with the placeholder(s) still literally in the text
-// (briefly visible to viewers, in exchange for not freezing the
-// composer for however long a video upload takes -- which can be a
-// while, relayed through the instance's own upstream bandwidth to
-// YouTube). If this browser tab/PWA closes before this resolves, the
-// placeholder(s) are left stuck in the live post with nothing to retry
-// them -- a real tradeoff, chosen over the alternative (a server-side
-// background job) specifically to avoid hooking into GtS's
-// status-creation internals for this.
-async function finishVideoUploads({
-  statusId,
-  originalText,
-  baseParams,
-  inlineVideoUploads,
-  masto,
-  instance,
-  client,
-}) {
-  const results = await Promise.allSettled(
-    inlineVideoUploads.map(({ token, file }) => {
-      const form = new FormData();
-      form.append('file', file);
-      return fetch(`https://${instance}/api/v1/media/youtube`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${client.accessToken}`,
-        },
-        body: form,
-      })
-        .then(async (res) => {
-          if (!res.ok) {
-            const body = await res.json().catch(() => null);
-            throw new Error(
-              body?.error || `YouTube upload failed (${res.status})`,
-            );
-          }
-          return res.json();
-        })
-        .then((res) => ({ token, url: res.url }));
-    }),
-  );
-
-  let text = originalText;
-  results.forEach((result, i) => {
-    const { token } = inlineVideoUploads[i];
-    if (result.status === 'fulfilled' && result.value?.url) {
-      text = text.replaceAll(`[uploading-video:${token}]`, result.value.url);
-    } else {
-      if (result.status === 'rejected') {
-        console.error(
-          'YouTube upload failed for token',
-          token,
-          result.reason,
-        );
-      }
-      text = text.replaceAll(
-        `[uploading-video:${token}]`,
-        '[video upload to YouTube failed]',
-      );
-    }
-  });
-
-  // Nothing to do if every placeholder somehow already resolved
-  // (shouldn't normally happen, but avoids a pointless empty edit).
-  if (text === originalText) return;
-
-  await masto.v1.statuses.$select(statusId).update({
-    ...baseParams,
-    status: text,
-  });
-}
-
 function Compose({
   onClose,
   replyToStatus,
@@ -327,43 +241,6 @@ function Compose({
   // become inline-only Markdown image references, not status attachments.
   const [inlineImageUploads, setInlineImageUploads] = useState([]);
   const inlineImageTokenCounter = useRef(0);
-
-  // Same placeholder trick as inlineImageUploads above, but for video.
-  // Any video file selected through the *normal* "attach media" picker
-  // (FilePickerInput's onVideoPick prop, wired up below) gets routed
-  // here instead of setMediaAttachments -- there's deliberately no
-  // separate "add video" button/input to pick the wrong one of by
-  // accident (an earlier version of this had one, and it turned out to
-  // be easy to bypass: e.g. Android's file picker lets you switch to
-  // "Google Photos" and pick a video even when the input's `accept`
-  // attribute says images-only, since `accept` is only a UI hint some
-  // pickers don't respect). Instead, the actual file.type is checked in
-  // JS immediately after selection, in FilePickerInput itself, which
-  // can't be bypassed by whatever OS/browser picker UI supplied the
-  // file.
-  //
-  // A token gets inserted into the textarea immediately as
-  // [uploading-video:TOKEN], and the file is only actually uploaded at
-  // submit time -- not to GtS's normal media pipeline, but to the
-  // instance's configured YouTube channel (as an unlisted video) via
-  // POST /api/v1/media/youtube, a freelimbo-specific extension. The
-  // placeholder is later swapped for the real YouTube watch URL (see
-  // finishVideoUploads above). These files never become status
-  // attachments or media_ids -- GtS never sees them as media at all,
-  // only as a plain link in the status text once the placeholder is
-  // resolved. Phanpy's own YouTube link detection (see status-card.jsx)
-  // picks that link up client-side and renders an embedded player,
-  // independent of any server-side link preview support.
-  const [inlineVideoUploads, setInlineVideoUploads] = useState([]);
-  const inlineVideoTokenCounter = useRef(0);
-  const pickInlineVideo = (file) => {
-    const token = `${Date.now()}-${inlineVideoTokenCounter.current++}`;
-    setInlineVideoUploads((uploads) => uploads.concat({ token, file }));
-    insertTextAtCursor({
-      targetElement: textareaRef.current,
-      text: `[uploading-video:${token}]`,
-    });
-  };
 
   const prefs = getPreferences();
 
@@ -1577,28 +1454,6 @@ function Compose({
                   }
                 }
 
-                // Deliberately NOT resolved here, unlike inlineImageUploads
-                // above. Videos can take a long time to upload (relayed
-                // through the instance's own, often slow, upstream
-                // bandwidth to YouTube) -- awaiting that before submit
-                // would freeze the composer for however long that takes,
-                // and risks nginx/proxy timeouts killing the request
-                // outright on a slow connection.
-                //
-                // Instead: the status is posted/edited immediately below
-                // with its [uploading-video:TOKEN] placeholder(s) still
-                // literally in the text (briefly visible to viewers, in
-                // exchange for not blocking), and finishVideoUploads()
-                // (defined further down) is kicked off *without* awaiting
-                // it, right after the post exists, so it can edit the
-                // post in place once each upload resolves. See that
-                // function's own comment for the tradeoff this implies:
-                // this is a deliberately simpler, client-driven design,
-                // not a server-tracked background job -- if this browser
-                // tab closes before uploads finish, the placeholder(s)
-                // are left stuck in the published post with nothing to
-                // retry them.
-
                 /* NOTE:
                 Using snakecase here because masto.js's `isObject` returns false for `params`, ONLY happens when opening in pop-out window. This is maybe due to `window.masto` variable being passed from the parent window. The check that failed is `x.constructor === Object`, so maybe the `Object` in new window is different than parent window's?
                 Code: https://github.com/neet/masto.js/blob/dd0d649067b6a2b6e60fbb0a96597c373a255b00/src/serializers/is-object.ts#L2
@@ -1677,67 +1532,6 @@ function Compose({
                   }
                 }
 
-                // Two different strategies depending on browser support,
-                // see video-upload-sync.js's top comment for the full
-                // story of why this got more involved than a plain
-                // fire-and-forget fetch: closing Phanpy's popped-out
-                // compose window, and (much more commonly) a mobile
-                // browser backgrounding/throttling this tab -- e.g.
-                // launching the real camera app to record a video
-                // backgrounds Chrome for the whole recording -- can both
-                // kill an in-flight fetch before it finishes.
-                let pendingVideoUploads;
-                if (inlineVideoUploads.length > 0) {
-                  if (supportsBackgroundSync()) {
-                    // Hand the actual upload + status edit off to the
-                    // service worker via Background Sync: it runs there
-                    // independent of this tab's lifecycle, so closing or
-                    // backgrounding this window/tab no longer matters
-                    // once the job is saved. Only the save + register
-                    // step itself needs to survive the tab closing (see
-                    // onClose below), not the whole upload.
-                    pendingVideoUploads = (async () => {
-                      const placeholderFor = (token) =>
-                        `[uploading-video:${token}]`;
-                      await Promise.all(
-                        inlineVideoUploads.map(({ token, file }) =>
-                          saveVideoUploadJob(newStatus.id, token, {
-                            file,
-                            fileName: file.name,
-                            instance,
-                            accessToken: client.accessToken,
-                            statusId: newStatus.id,
-                            originalText: params.status,
-                            baseParams: params,
-                            placeholder: placeholderFor(token),
-                          }),
-                        ),
-                      );
-                      const registration = await navigator.serviceWorker.ready;
-                      await registration.sync.register(VIDEO_UPLOAD_SYNC_TAG);
-                    })().catch((e) => {
-                      console.error('Failed to queue background video upload(s)', e);
-                    });
-                  } else {
-                    // Fallback for browsers without Background Sync
-                    // support (Safari, notably): same direct-fetch
-                    // approach as before, still not awaited, still
-                    // vulnerable to the tab closing/backgrounding
-                    // mid-upload, but no worse than before this fix.
-                    pendingVideoUploads = finishVideoUploads({
-                      statusId: newStatus.id,
-                      originalText: params.status,
-                      baseParams: params,
-                      inlineVideoUploads,
-                      masto,
-                      instance,
-                      client,
-                    }).catch((e) => {
-                      console.error('finishVideoUploads failed', e);
-                    });
-                  }
-                }
-
                 states.composerState.minimized = false;
                 states.composerState.publishing = false;
                 setUIState('default');
@@ -1749,7 +1543,6 @@ function Compose({
                   newStatus,
                   instance,
                   scheduledAt,
-                  pendingVideoUploads,
                 });
               } catch (e) {
                 states.composerState.publishing = false;
@@ -2044,9 +1837,6 @@ function Compose({
                           supportedMimeTypes={supportedImagesVideosTypes}
                           disabled={mediaButtonDisabled}
                           setMediaAttachments={setMediaAttachments}
-                          onVideoPick={
-                            supports('@gotosocial') ? pickInlineVideo : undefined
-                          }
                         />
                       </label>
                       <Icon icon="camera" /> <span>{_(ADD_LABELS.camera)}</span>
@@ -2064,9 +1854,6 @@ function Compose({
                         mediaAttachments={mediaAttachments}
                         disabled={mediaButtonDisabled}
                         setMediaAttachments={setMediaAttachments}
-                        onVideoPick={
-                          supports('@gotosocial') ? pickInlineVideo : undefined
-                        }
                       />
                     </label>
                     <Icon icon="media" /> <span>{_(ADD_LABELS.media)}</span>
@@ -2133,9 +1920,6 @@ function Compose({
                       mediaAttachments={mediaAttachments}
                       disabled={mediaButtonDisabled}
                       setMediaAttachments={setMediaAttachments}
-                      onVideoPick={
-                        supports('@gotosocial') ? pickInlineVideo : undefined
-                      }
                     />
                     <Icon icon="camera" alt={_(ADD_LABELS.camera)} />
                   </label>
@@ -2147,9 +1931,6 @@ function Compose({
                     mediaAttachments={mediaAttachments}
                     disabled={mediaButtonDisabled}
                     setMediaAttachments={setMediaAttachments}
-                    onVideoPick={
-                      supports('@gotosocial') ? pickInlineVideo : undefined
-                    }
                   />
                   <Icon icon="media" alt={_(ADD_LABELS.media)} />
                 </label>
@@ -2389,17 +2170,39 @@ function Compose({
                     // `accept` above is only a picker-UI hint, not an
                     // enforced filter -- e.g. Windows' native file dialog
                     // always offers an "All Files" override in its type
-                    // dropdown regardless of `accept`, same underlying
-                    // gap as the normal attach picker had (see
-                    // FilePickerInput's onVideoPick doc comment). Route
-                    // an actual video here to the same YouTube-upload
-                    // flow the normal attach button uses, rather than
-                    // letting it slip through as a "Markdown inline
-                    // image" -- which would silently upload it to local
-                    // storage via the normal synchronous media endpoint
-                    // and block the composer on it.
+                    // dropdown regardless of `accept`. A video can't be
+                    // embedded inline via Markdown's `![]()` image syntax,
+                    // so route it to the normal media-attachment flow
+                    // instead (same as the main "attach media" button --
+                    // it'll upload to R2 and show as a regular attachment
+                    // below the post) rather than letting it slip through
+                    // as a broken inline image reference.
                     if (file.type?.startsWith('video/')) {
-                      pickInlineVideo(file);
+                      if (
+                        mediaAttachments.length + 1 >
+                        maxMediaAttachments
+                      ) {
+                        alert(
+                          plural(maxMediaAttachments, {
+                            one: 'You can only attach up to 1 file.',
+                            other: 'You can only attach up to # files.',
+                          }),
+                        );
+                      } else {
+                        setMediaAttachments((attachments) =>
+                          attachments.concat([
+                            {
+                              file,
+                              fileName: file.name,
+                              type: file.type,
+                              size: file.size,
+                              url: URL.createObjectURL(file),
+                              id: null,
+                              description: null,
+                            },
+                          ]),
+                        );
+                      }
                       e.target.value = '';
                       return;
                     }

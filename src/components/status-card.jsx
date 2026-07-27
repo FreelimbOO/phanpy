@@ -298,9 +298,8 @@ export default StatusCard;
 
 // YouTube video ID regex — matches watch?v=, youtu.be/, and /shorts/ URLs.
 // `g` flag so extractYouTubeVideoIds can find every match in the content,
-// not just the first -- a post can have multiple inline-video uploads
-// (see compose.jsx's finishVideoUploads), each becoming its own
-// youtu.be link.
+// not just the first -- a post can contain multiple plain-text YouTube
+// links, each rendered as its own embedded player.
 const YT_REGEX =
   /href="https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?(?:[^"]*&)*v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/gi;
 
