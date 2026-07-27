@@ -343,7 +343,8 @@ a:is(:hover, :focus) {
   text-decoration-color: var(--link-color);
 }
 
-img {
+img,
+video {
   max-width: 100%;
 }
 

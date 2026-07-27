@@ -232,15 +232,58 @@ function Compose({
     store.session.get('currentStatusContentType') || 'text/plain',
   );
 
-  // Files picked via the "Insert as inline image" action (Markdown mode
-  // only). Each entry is a placeholder token + its File object; the
-  // token gets inserted into the textarea immediately as
-  // ![](inline:TOKEN), and only actually uploaded at submit time, when
-  // the placeholder is swapped for the real uploaded URL. These files
-  // are deliberately never added to `mediaAttachments`/media_ids -- they
-  // become inline-only Markdown image references, not status attachments.
+  // Files picked via the main "Add media" button while composing in
+  // Markdown mode (both photos AND videos -- there's no separate
+  // "insert as inline image" button anymore; in Markdown mode, media IS
+  // inline media). Each entry is a placeholder token + its File object;
+  // the token gets inserted into the textarea immediately as
+  // ![](inline:TOKEN), Markdown's image syntax, and the file is only
+  // actually uploaded at submit time, when the placeholder is swapped
+  // for the real uploaded URL. That's the same syntax regardless of
+  // whether the file turns out to be a photo or a video -- the backend
+  // (goldmark_custom_renderer.go's handleImage) decides whether to
+  // render it as <img> or <video> once it knows the real attachment
+  // type. These files are deliberately never added to
+  // `mediaAttachments`/media_ids -- they become inline-only Markdown
+  // references, not status (gallery) attachments. In Plain text mode
+  // there's no Markdown to embed anything inline into, so the same
+  // "Add media" button instead adds straight to `mediaAttachments`, same
+  // as it always has.
   const [inlineImageUploads, setInlineImageUploads] = useState([]);
   const inlineImageTokenCounter = useRef(0);
+  const pickInlineMedia = (file) => {
+    const token = `${Date.now()}-${inlineImageTokenCounter.current++}`;
+    setInlineImageUploads((uploads) => uploads.concat({ token, file }));
+    insertTextAtCursor({
+      targetElement: textareaRef.current,
+      text: `![](inline:${token})`,
+    });
+  };
+
+  // FilePickerInput/CameraCaptureInput both call whatever they're given
+  // as `setMediaAttachments` the exact same way React's own setState
+  // updater form works: a function that receives the *previous*
+  // attachments array and returns the new one, with the newly-picked
+  // files appended at the end. In Markdown mode, hijack that call: run
+  // the updater against an empty array to cheaply extract just the
+  // newly-picked files (ignoring whatever it would've done to real
+  // previous attachments), then route each one through pickInlineMedia
+  // instead of ever touching real `mediaAttachments` state. This lets
+  // both components stay completely unaware that Markdown mode exists.
+  //
+  // Known rough edge: FilePickerInput's own "max attachments" check
+  // still compares against the real mediaAttachments/maxMediaAttachments
+  // props (unrelated to the inline-media flow, which has no cap of its
+  // own) -- so it's possible, though unlikely, for it to warn about the
+  // gallery-attachment limit while actually adding inline media. Not
+  // worth the extra plumbing to special-case away.
+  const addMedia =
+    contentType === 'text/markdown'
+      ? (updater) => {
+          const added = updater([]);
+          added.forEach(({ file }) => pickInlineMedia(file));
+        }
+      : setMediaAttachments;
 
   const prefs = getPreferences();
 
@@ -1418,12 +1461,15 @@ function Compose({
                 }
 
                 if (inlineImageUploads.length > 0) {
-                  // Upload each pending "insert as inline image" file,
-                  // then swap its ![](inline:TOKEN) placeholder in the
-                  // status text for the real uploaded URL. These files
-                  // are never added to media_ids -- GtS's own inline
-                  // Markdown image fetch/cache picks up the resolved
-                  // URL from the status text itself once posted.
+                  // Upload each pending inline-media file (photo or
+                  // video, picked via "Add media" while in Markdown
+                  // mode), then swap its ![](inline:TOKEN) placeholder
+                  // in the status text for the real uploaded URL. These
+                  // files are never added to media_ids -- GtS's own
+                  // inline Markdown image/video fetch+cache (which
+                  // decides <img> vs <video> based on the attachment's
+                  // real type) picks up the resolved URL from the
+                  // status text itself once posted.
                   const inlineResults = await Promise.allSettled(
                     inlineImageUploads.map(({ token, file }) =>
                       masto.v2.media
@@ -1444,7 +1490,7 @@ function Compose({
                         console.error(result);
                       }
                     });
-                    alert(t`Failed to upload one or more inline images.`);
+                    alert(t`Failed to upload one or more inline media items.`);
                     return;
                   }
 
@@ -1836,7 +1882,7 @@ function Compose({
                           hidden
                           supportedMimeTypes={supportedImagesVideosTypes}
                           disabled={mediaButtonDisabled}
-                          setMediaAttachments={setMediaAttachments}
+                          setMediaAttachments={addMedia}
                         />
                       </label>
                       <Icon icon="camera" /> <span>{_(ADD_LABELS.camera)}</span>
@@ -1853,7 +1899,7 @@ function Compose({
                         maxMediaAttachments={maxMediaAttachments}
                         mediaAttachments={mediaAttachments}
                         disabled={mediaButtonDisabled}
-                        setMediaAttachments={setMediaAttachments}
+                        setMediaAttachments={addMedia}
                       />
                     </label>
                     <Icon icon="media" /> <span>{_(ADD_LABELS.media)}</span>
@@ -1919,7 +1965,7 @@ function Compose({
                       supportedMimeTypes={supportedImagesVideosTypes}
                       mediaAttachments={mediaAttachments}
                       disabled={mediaButtonDisabled}
-                      setMediaAttachments={setMediaAttachments}
+                      setMediaAttachments={addMedia}
                     />
                     <Icon icon="camera" alt={_(ADD_LABELS.camera)} />
                   </label>
@@ -1930,7 +1976,7 @@ function Compose({
                     maxMediaAttachments={maxMediaAttachments}
                     mediaAttachments={mediaAttachments}
                     disabled={mediaButtonDisabled}
-                    setMediaAttachments={setMediaAttachments}
+                    setMediaAttachments={addMedia}
                   />
                   <Icon icon="media" alt={_(ADD_LABELS.media)} />
                 </label>
@@ -2152,72 +2198,6 @@ function Compose({
                   <option value="text/plain">Plain text</option>
                   <option value="text/markdown">Markdown</option>
                 </select>
-              </label>
-            )}{' '}
-            {supports('@gotosocial') && contentType === 'text/markdown' && (
-              // Not i18n'd, same reasoning as the toggle above.
-              <label class="toolbar-button" title="Insert as inline image">
-                <input
-                  type="file"
-                  hidden
-                  accept={supportedImagesVideosTypes
-                    ?.filter((mimeType) => /^image/i.test(mimeType))
-                    .join(',')}
-                  disabled={uiState === 'loading'}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    // `accept` above is only a picker-UI hint, not an
-                    // enforced filter -- e.g. Windows' native file dialog
-                    // always offers an "All Files" override in its type
-                    // dropdown regardless of `accept`. A video can't be
-                    // embedded inline via Markdown's `![]()` image syntax,
-                    // so route it to the normal media-attachment flow
-                    // instead (same as the main "attach media" button --
-                    // it'll upload to R2 and show as a regular attachment
-                    // below the post) rather than letting it slip through
-                    // as a broken inline image reference.
-                    if (file.type?.startsWith('video/')) {
-                      if (
-                        mediaAttachments.length + 1 >
-                        maxMediaAttachments
-                      ) {
-                        alert(
-                          plural(maxMediaAttachments, {
-                            one: 'You can only attach up to 1 file.',
-                            other: 'You can only attach up to # files.',
-                          }),
-                        );
-                      } else {
-                        setMediaAttachments((attachments) =>
-                          attachments.concat([
-                            {
-                              file,
-                              fileName: file.name,
-                              type: file.type,
-                              size: file.size,
-                              url: URL.createObjectURL(file),
-                              id: null,
-                              description: null,
-                            },
-                          ]),
-                        );
-                      }
-                      e.target.value = '';
-                      return;
-                    }
-                    const token = `${Date.now()}-${inlineImageTokenCounter.current++}`;
-                    setInlineImageUploads((uploads) =>
-                      uploads.concat({ token, file }),
-                    );
-                    insertTextAtCursor({
-                      targetElement: textareaRef.current,
-                      text: `![](inline:${token})`,
-                    });
-                    e.target.value = '';
-                  }}
-                />
-                <Icon icon="media" alt="Insert as inline image" />
               </label>
             )}{' '}
             <label
